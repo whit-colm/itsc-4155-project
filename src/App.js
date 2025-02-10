@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Home from './Home';
-import Recommendations from './Recommendations';
-import './App.css';
-import Footer from './Footer';
+import Home from './pages/Home'; // Adjusted import path
+import Recommendations from './pages/Recommendations'; // Adjusted import path
+import './App.css'; // Corrected import path
+import Footer from './components/Footer';
 import logo from './logo.png'; // Import the logo
 
 function App() {

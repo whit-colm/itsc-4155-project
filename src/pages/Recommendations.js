@@ -1,5 +1,5 @@
 import React from 'react';
-import './Recommendations.css'; // Import the CSS file
+import '../styles/Recommendations.css'; // Adjusted import path
 
 function Recommendations() {
   return (
