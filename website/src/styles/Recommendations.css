@@ -1,0 +1,32 @@
+.recommendations-list {
+    list-style-type: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap; /* Allow items to wrap to the next line */
+    justify-content: center;
+    gap: 20px; /* Space between items */
+  }
+  
+  .recommendations-list li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #ecf0f1;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .recommendations-list li:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+  
+  .book-image {
+    width: 150px; /* Set a fixed width for the book images */
+    height: auto;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  
