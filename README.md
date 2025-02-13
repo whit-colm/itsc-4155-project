@@ -11,6 +11,20 @@
 - [Figma](https://www.figma.com/files/team/1470848791941601365/all-projects)
 - [Taiga](https://tree.taiga.io/project/ailevbar-itsc-4155-spring-2025-team-9)
 
+# Running - Docker
+
+> :warning: **USE A CONTAINER!** Production code is not intended to just run directly.
+
+Due to the large array of tooling used in the project,
+
+## Installing Docker
+
+For _almost_ everybody, you want to install [Docker Desktop](https://docs.docker.com/desktop/). If you are using Windows, make sure [you set up Linux Containers on Windows](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/set-up-linux-containers)
+
+## Running
+
+TODO: This. Does the GH action actually publish the package? where?
+
 # Organization
 
 ## Frontend
