@@ -23,7 +23,8 @@ For _almost_ everybody, you want to install [Docker Desktop](https://docs.docker
 
 ## Running
 
-TODO: This. Does the GH action actually publish the package? where?
+<!-- TODO: These will probably become "dev" and "prod"; but not right now. -->
+There are two modes primary targets to meet, `monolith` and `webnative`.
 
 # Organization
 
