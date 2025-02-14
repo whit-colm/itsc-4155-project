@@ -13,18 +13,64 @@
 
 # Running - Docker
 
-> :warning: **USE A CONTAINER!** Production code is not intended to just run directly.
+> [!WARNING]
+> **USE A CONTAINER!** Production code is not intended to just run directly.
 
-Due to the large array of tooling used in the project,
+Due to the large array of tooling used in the project, it is intended to be run as a\* docker container. There's an asterisk in the previous sentence because not all of the system can run within a single container; a database is required for persistent storage, which is generally provided as a container as well.
+
+> <details><summary><em>"Why are you doing this to me?"</em> - An explanation of Docker</summary>
+> 
+> Docker containers are only really meant to run one single program at a time. In this project we actually have 3: the frontend (nginx), the backend (the compiled Go binary), and the database (postgres). For sake of everyone's mental wellness the front and backends can be stapled together with minimal modification, but the database is so grotesquely complex that it can't be included in a monolith Docker container
+>
+> In a cloud-native environment, like the one this project is designed for, these containers are managed by an even more mind-numbing, nightmare-inducing, megalithic system called a "container orchestrator", the most popular one of these being Kubernetes.
+> 
+> In Kubernetes, this program would be deployed as a set of pods (where a 'pod' is a group of Docker containers): the front and back-end would be made into their own containers and placed together in a pod, and then the database would be its own pod. The three would communicate over an internal network with a single entry point from the internet (or LAN) which would be the frontend.
+>
+> Whit (the person writing this) has a Kubernetes cluster at home which if she were not so lazy could set up automatic deployment, but she is so... sorry.
+> 
+> </details>
 
 ## Installing Docker
 
-For _almost_ everybody, you want to install [Docker Desktop](https://docs.docker.com/desktop/). If you are using Windows, make sure [you set up Linux Containers on Windows](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/set-up-linux-containers)
+For _almost_ everybody, you want to install [Docker Desktop](https://docs.docker.com/desktop/). If you are using Windows, make sure you set up [Linux Containers on Windows](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/set-up-linux-containers)
+
+## Monoscript
+
+Once you are sure Docker is installed, you can use the following scripts to build and start the testing environment.
+
+> [!IMPORTANT]
+> This has only been fully tested on amd64 Linux. The scripts for Windows and macOS were translated from the Linux script with the help of DeepSeek-R1.
+>
+> Furthermore, there could be additional complications for users of arm64 (such as Apple Silicon)
+
+In the `/scripts` directory are three scripts:
+
+- `build-dockerfile.sh` for Linux and other UNIX-like platforms
+- `BuildDockerfile.bat` for Windows
+- `build-dockerfile.zsh` for macOS
+
+Run the script for your platform and it will generate a `/Dockerfile` in the repo root, build it, and run it on your machine along with a PostgreSQL container.
+
+**If you want to populate the DB with dummy values**: add the `--dummy-db` (`/DummyDb` if on Windows) flag to the end of the script. This will perform additional migrations to allow for rapid testing.
+
+## Building
+
+<!-- TODO: These will probably become "dev" and "prod"; but not right now. -->
+If for some reason you can't stand to do in 1 command what could be done in 10, the following sections are for you. It has only been tested on Linux/amd64 so your milage may vary. The buck stops here for support from Whit as well.
+
+```
+docker build .
+```
 
 ## Running
 
-<!-- TODO: These will probably become "dev" and "prod"; but not right now. -->
-There are two modes primary targets to meet, `monolith` and `webnative`.
+> [!NOTE]
+>
+> This needs to... like actually be written. If you're reading this and it's later than like. 15/02 you should yell at me very much! :)
+
+Alright so you built the docker container. Now you gotta run it and `postgres:17` and make sure they actually can talk to each other. Don't expose the postgres one to the network (actually at this point you should have a pretty damn good reason to expose *any* of this to the network) and you'll be fine. Also don't forget about storage maybe for db persistence; the front-backend container shouldn't need it because stateless.
+
+Also feminism.
 
 # Organization
 
