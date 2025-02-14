@@ -28,6 +28,34 @@ date
 failure () { echo FAILED. >&3; exit 1; }
 trap failure EXIT
 
+# Define flags which change how we handle the execution of the pod
+demo_values='false'
+tidy_when_done='false'
+persistence=''
+
+# Print usage
+print_usage() {
+    echo "Debug script for running the software"
+    echo "DO NOT USE THIS SCRIPT FOR DEPLOYMENT"
+    echo
+    echo "Flags:"
+    echo "\t-d - Enable demo values in DB"
+    echo "\t-t - Have pods auto-delete themselves when done"
+    echo "\t-f:  [path] Path to volume to mount for persistent Postgres"
+}
+
+# Iterate using getopts to get flags and assign to vars
+# From https://stackoverflow.com/a/21128172; licensed CC BY-SA 4.0
+while getopts 'abf:v' flag; do
+    case "${flag}" in
+        d) demo_values='true'      ;;
+        t) tidy_when_done='true'   ;;
+        f) persistence="${OPTARG}" ;;
+        *) usage()
+           exit 1;;
+    esac
+done
+
 # move to root of repo. This does assume the script is "somewhere" in
 # the repo. Which I think is a perfectly healthy assumption to make.
 cd "${ABS_DIR}"
@@ -42,6 +70,7 @@ docker build --target webnative -t ${jaws_docker_tag}
 readonly psql_passwd = $(openssl rand -base64 48)
 
 # We have to start up the Postgres container, which is a pain in the--
+# We have to check to see if certain flags were parsed to 
 docker run --name jaws-psql -e POSTGRES_PASSWORD=${psql_passwd} -d postgres:17-alpine
 docker run --name jaws-app -e POSTGRES_PASSWORD=${psql_passwd} -d jaws:${jaws_docker_tag}
 

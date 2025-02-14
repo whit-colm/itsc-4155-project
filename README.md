@@ -34,7 +34,7 @@ Due to the large array of tooling used in the project, it is intended to be run 
 
 For _almost_ everybody, you want to install [Docker Desktop](https://docs.docker.com/desktop/). If you are using Windows, make sure you set up [Linux Containers on Windows](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/set-up-linux-containers)
 
-## Monoscript
+## Testing Monoscript
 
 Once you are sure Docker is installed, you can use the following scripts to build and start the testing environment.
 
@@ -45,32 +45,29 @@ Once you are sure Docker is installed, you can use the following scripts to buil
 
 In the `/scripts` directory are three scripts:
 
-- `build-dockerfile.sh` for Linux and other UNIX-like platforms
-- `BuildDockerfile.bat` for Windows
-- `build-dockerfile.zsh` for macOS
+- `run-test-env.sh` for Linux and other UNIX-like platforms (Bash)
+- `RunTestEnv.bat` for Windows (PowerShell)
+- `run-test-env.zsh` for macOS (ZSH)
 
-Run the script for your platform and it will generate a `/Dockerfile` in the repo root, build it, and run it on your machine along with a PostgreSQL container.
-
-**If you want to populate the DB with dummy values**: add the `--dummy-db` (`/DummyDb` if on Windows) flag to the end of the script. This will perform additional migrations to allow for rapid testing.
+Note that this script should only be used for testing and demo purposes. Full deployments must be done manually as of now, see below for more information:
 
 ## Building
 
-<!-- TODO: These will probably become "dev" and "prod"; but not right now. -->
-If for some reason you can't stand to do in 1 command what could be done in 10, the following sections are for you. It has only been tested on Linux/amd64 so your milage may vary. The buck stops here for support from Whit as well.
-
-```
-docker build .
-```
+> [!NOTE]
+>
+> TODO: Write this
 
 ## Running
 
 > [!NOTE]
 >
-> This needs to... like actually be written. If you're reading this and it's later than like. 15/02 you should yell at me very much! :)
+> TODO: Write this
 
-Alright so you built the docker container. Now you gotta run it and `postgres:17` and make sure they actually can talk to each other. Don't expose the postgres one to the network (actually at this point you should have a pretty damn good reason to expose *any* of this to the network) and you'll be fine. Also don't forget about storage maybe for db persistence; the front-backend container shouldn't need it because stateless.
+## Deploying
 
-Also feminism.
+> [!NOTE]
+>
+> TODO: Write this or scrap it.
 
 # Organization
 
