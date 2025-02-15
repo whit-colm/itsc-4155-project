@@ -56,6 +56,6 @@ ENV NGINX_HOST=localhost
 
 # Establish healthcheck for backend
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health
+    CMD curl -f http://localhost:8080/api/health
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.
