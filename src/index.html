@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Search</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Book Search</h1>
+    <input type="text" id="searchField" placeholder="Enter book title">
+    <button id="searchButton">Search</button>
+    <pre id="results"></pre>
+
+    <script>
+        document.getElementById('searchButton').addEventListener('click', async () => {
+            const query = document.getElementById('searchField').value;
+            const response = await fetch('http://localhost:8080/books/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ search: query })
+            });
+            const results = await response.json();
+            document.getElementById('results').textContent = JSON.stringify(results, null, 2);
+        });
+    </script>
+</body>
+</html>
