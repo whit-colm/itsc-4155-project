@@ -1,7 +1,7 @@
 # Use multi-stage builds to keep the final image small
 
 #### Go Backend ####
-FROM golang:1.24-alpine as backend
+FROM golang:1.24-alpine AS backend
 WORKDIR /app
 
 COPY go.mod ./
@@ -13,7 +13,7 @@ COPY cmd ./cmd
 RUN go build -o jaws main.go
 
 #### React Frontend ####
-FROM node:23-alpine as frontend
+FROM node:23-alpine AS frontend
 
 WORKDIR /website
 COPY website/ ./
@@ -25,11 +25,13 @@ RUN npm install ; \
 ## A webnative deployment should have a database external to itself.
 ## This is useful for testing and debugging purposes - because of how
 ## complex postgres is, we use it as a base for the monolith
-FROM nginx:1-alpine as webnative
+FROM nginx:1-alpine AS webnative
 
 # copy outputs compiled in prior steps
 COPY --from=backend /app/jaws /app/jaws
+RUN chown nginx:nginx /app/jaws
 COPY --from=frontend /website/build /var/www/html
+RUN chown -R nginx:nginx /var/www/html/
 # copy in backend runner to /docker-entrypoint.d/ (which nginx runs at
 # startup) and set appropriate ownership and permission bits. Also copy
 # nginx.conf + templates (templates can use ENV vars)
