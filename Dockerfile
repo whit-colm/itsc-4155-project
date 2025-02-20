@@ -1,14 +1,8 @@
 # Use multi-stage builds to keep the final image small
 
-
 #### Go Backend ####
 FROM golang:1.24-alpine as backend
 WORKDIR /app
-
-
-COPY go.mod go.sum ./
-RUN go mod download
-
 
 COPY go.mod ./
 COPY go.sum ./
@@ -16,30 +10,22 @@ COPY main.go ./
 COPY pkg ./pkg
 COPY cmd ./cmd
 
-
-RUN go build -o /jaws main.go
-
 RUN go build -o jaws main.go
 
 #### React Frontend ####
 FROM node:23-alpine as frontend
 
-
 WORKDIR /website
 COPY website/ ./
-WORKDIR /website
-
 
 RUN npm install ; \
     npm run build
-
 
 #### Postgres Database ####
 ## A webnative deployment should have a database external to itself.
 ## This is useful for testing and debugging purposes - because of how
 ## complex postgres is, we use it as a base for the monolith
 FROM nginx:1-alpine as webnative
-
 
 # copy outputs compiled in prior steps
 COPY --from=backend /app/jaws /app/jaws
@@ -51,16 +37,6 @@ COPY build/docker/start-backend.sh /docker-entrypoint.d/start-backend.sh
 RUN chown nginx:nginx /docker-entrypoint.d/start-backend.sh ; \
     chmod +x /docker-entrypoint.d/start-backend.sh
 COPY build/docker/nginx.conf /etc/nginx/nginx.conf
-COPY build/docker/monolith/initdb.sql /docker-entrypoint-initdb.d/initdb.sql
-# copy custom entrypoint and override default one used by psql
-COPY build/docker/monolith/entrypoint.sh /entrypoint.sh
-
-
-RUN chmod +x /entrypoint.sh
-
-
-ENTRYPOINT [ "/entrypoint.sh" ]
-
 RUN chown nginx:nginx /etc/nginx/nginx.conf
 COPY build/docker/default.conf.template /etc/nginx/templates/
 RUN chown nginx:nginx /etc/nginx/templates/*
