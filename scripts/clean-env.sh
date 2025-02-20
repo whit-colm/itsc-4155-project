@@ -25,6 +25,13 @@ date
 failure () { echo FAILED. >&3; exit 1; }
 trap failure EXIT
 
+# Stop and purge jaws containers
+docker kill jaws-app || true
+docker kill jaws-psql || true
+docker rm jaws-app || true
+docker rm jaws-psql || true
+
+# remove dangling images and old JAWS images to boot
 docker rmi $(docker images -f "dangling=true" -q) || true
 
 docker rmi $(docker images --filter "reference=jaws" --format "{{.ID}} {{.CreatedAt}}" \

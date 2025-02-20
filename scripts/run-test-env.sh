@@ -32,21 +32,26 @@ trap failure EXIT
 demo_values=''
 tidy_when_done=''
 persistence=''
+app_port='8080'
+db_port='54321'
 
 # Print usage
 print_usage() {
-    echo "Debug script for running the software"
-    echo "DO NOT USE THIS SCRIPT FOR DEPLOYMENT"
-    echo
-    echo "Flags:"
-    echo "\t-d - Enable demo values in DB"
-    echo "\t-t - Have pods auto-delete themselves when done"
-    echo "\t-f:  [path] Path to volume to mount for persistent Postgres"
+    echo -e "Debug script for running the software" >&3
+    echo -e "DO NOT USE THIS SCRIPT FOR DEPLOYMENT" >&3
+    echo -e >&3
+    echo -e "Flags:" >&3
+    echo -e "\t-d -\tEnable demo values in DB" >&3
+    echo -e "\t-t -\tHave pods auto-delete themselves when done" >&3
+    echo -e "\t-f: [path]\tPath to volume to mount for persistent Postgres" >&3
+    echo -e "\t-a: [port]\tPostgres port to expose (default 54321)" >&3
+    echo -e "\t-p: [path]\tNginx port to expose (default 8080)" >&3
+    exit 2
 }
 
 # Iterate using getopts to get flags and assign to vars
 # From https://stackoverflow.com/a/21128172; licensed CC BY-SA 4.0
-while getopts 'abf:v' flag; do
+while getopts 'dtf:a:p:' flag; do
     case "${flag}" in
         d) 
             demo_values='true'
@@ -57,9 +62,15 @@ while getopts 'abf:v' flag; do
         f) 
             persistence="${OPTARG}" 
             ;;
+        a) 
+            app_port="${OPTARG}" 
+            ;;
+        p)
+            db_port="${OPTARG}" 
+            ;;
         ?) 
-            usage
-            failure
+            trap print_usage EXIT
+            exit
             ;;
     esac
 done
@@ -79,8 +90,10 @@ readonly psql_passwd=$(openssl rand -base64 48)
 
 # We have to run two containers, the app and the database
 # We also have to set runtime flags based on script flags passed.
-db_flags=""
-app_flags=""
+# we can set some flags already because app_port and db_port are always
+# set.
+db_flags="-p ${db_port}:5432 "
+app_flags="-p ${app_port}:80 "
 
 # check if we should use demo values
 # TODO: implement demo values
@@ -89,16 +102,16 @@ if [[ -n "${demo_values}" ]]; then
 fi
 # Now check if we need to tidy our containers; which is to say we --rm
 if [[ -n "${tidy_when_done}" ]]; then
-    app_flags += '--rm '
-    db_flags += '--rm '
+    app_flags+='--rm '
+    db_flags+='--rm '
 fi
 # Finally we add a volume to the db if we must
 if [[ -n "${persistence}" ]]; then
-    db_flags += "--mount type=bind,source=${persistence},target=/var/lib/postgresql/data "
+    db_flags+="--mount type=bind,source=${persistence},target=/var/lib/postgresql/data "
 fi
 
 # Now we can run our containers with the given flags
-docker run --name jaws-psql ${db_flags} -e POSTGRES_PASSWORD=${psql_passwd} -d postgres:17-alpine
+docker run --name jaws-psql ${db_flags} -e POSTGRES_PASSWORD=${psql_passwd}  -d postgres:17-alpine
 docker run --name jaws-app ${app_flags} -e PG_PASSWORD=${psql_passwd} -d jaws:${jaws_docker_tag}
 
 # end of script. Therefore the only time failure should be untrapped.
