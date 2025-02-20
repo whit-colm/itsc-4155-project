@@ -3,6 +3,7 @@
 <#
 .SYNOPSIS
 Starts the JAWS application with PostgreSQL in Docker containers
+Translated with DeepSeek DeepThink-R1 from original Bash script
 #>
 
 $ErrorActionPreference = "Stop"
