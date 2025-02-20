@@ -46,7 +46,7 @@ Once you are sure Docker is installed, you can use the following scripts to buil
 In the `/scripts` directory are three scripts:
 
 - `run-test-env.sh` for Linux and other UNIX-like platforms (Bash)
-- `RunTestEnv.bat` for Windows (PowerShell)
+- `RunTestEnv.ps1` for Windows (PowerShell)
 - `run-test-env.zsh` for macOS (ZSH)
 
 Note that this script should only be used for testing and demo purposes. Full deployments must be done manually as of now, see below for more information:
