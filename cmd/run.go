@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"strconv"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/whit-colm/itsc-4155-project/pkg/endpoints"
 )
@@ -15,7 +16,7 @@ type flagVars struct {
 	DebugMode  bool
 
 	GinHost string
-	GinPort int
+	GinPort string
 
 	PsqlDatabase string
 	PsqlUser     string
@@ -31,7 +32,7 @@ func Run(args []string) int {
 	flag.BoolVar(&runtimeConfig.DockerMode, "docker", false, "Weather to run in Docker mode (i.e. read ENV vars)")
 	flag.BoolVar(&runtimeConfig.DebugMode, "debug", true, "Weather to run in Docker mode (i.e. read ENV vars)")
 	flag.StringVar(&runtimeConfig.GinHost, "host", "localhost", "Hostname to listen to")
-	flag.IntVar(&runtimeConfig.GinPort, "port", 8080, "Port to listen to")
+	flag.StringVar(&runtimeConfig.GinPort, "port", "9000", "Port to listen to")
 
 	flag.StringVar(&runtimeConfig.PsqlPassword, "dbdatabase", "postgres", "Database to be used in the PostgreSQL instance")
 	flag.StringVar(&runtimeConfig.PsqlUser, "dbuser", "postgres", "Username for the PostgreSQL user")
@@ -46,11 +47,11 @@ func Run(args []string) int {
 	if runtimeConfig.DockerMode {
 		// In docker mode, the backend is only ever touched by the
 		// front-end (nginx); and is not exposed to the network.
-		runtimeConfig.GinHost = "localhost"
-		runtimeConfig.GinPort = 8080
+		runtimeConfig.GinHost = "0.0.0.0"
+		runtimeConfig.GinPort = "9000"
 
 		debugMode := os.Getenv("DEBUG_MODE")
-		var err error
+		var err error = nil
 		runtimeConfig.DebugMode, err = strconv.ParseBool(debugMode)
 		if err != nil {
 			runtimeConfig.DebugMode = true
@@ -77,10 +78,19 @@ func Run(args []string) int {
 	// Define the Gin router
 	router := gin.Default()
 
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	// Set up endpoints
 	endpoints.Configure(router)
 
 	// Start the router
-	router.Run(fmt.Sprintf("%v:%d", runtimeConfig.GinHost, runtimeConfig.GinPort))
+	router.Run(runtimeConfig.GinHost + ":" + runtimeConfig.GinPort)
 	return 0
 }

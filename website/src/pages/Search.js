@@ -6,12 +6,12 @@ function Search() {
   const [results, setResults] = useState([]);
 
   const handleSearch = async () => {
-    const response = await fetch('http://localhost:8080/books/search', {
-      method: 'POST',
+    const response = await fetch('/api/books', {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ search: query })
+      //body: JSON.stringify({ search: query })
     });
     const data = await response.json();
     setResults(data);

@@ -43,11 +43,16 @@ Once you are sure Docker is installed, you can use the following scripts to buil
 >
 > Furthermore, there could be additional complications for users of arm64 (such as Apple Silicon)
 
-In the `/scripts` directory are three scripts:
+In the `/scripts` directory there are two scripts (well, six, but two discrete functions implemented for three separate platforms):
 
-- `run-test-env.sh` for Linux and other UNIX-like platforms (Bash)
-- `RunTestEnv.ps1` for Windows (PowerShell)
-- `run-test-env.zsh` for macOS (ZSH)
+- "Rust test environment" builds the docker image and starts a container for it and the necessary PostgreSQL instance. These are:
+    - `run-test-env.sh` for Linux and other UNIX-like platforms (Bash)
+    - `RunTestEnv.ps1` for Windows (PowerShell)
+    - `run-test-env.zsh` for macOS (ZSH)
+- "Clean environment" cleans the docker environment of old images and containers, not necessary but it makes it easier to keep a clean workplace.
+    - `clean-env.sh` for Linux and other UNIX-like platforms (Bash)
+    - `clean-env.zsh` for macOS (ZSH)
+    - *No windows version yet exists, sorry.*
 
 Note that this script should only be used for testing and demo purposes. Full deployments must be done manually as of now, see below for more information:
 

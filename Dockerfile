@@ -44,7 +44,7 @@ COPY build/docker/default.conf.template /etc/nginx/templates/
 RUN chown nginx:nginx /etc/nginx/templates/*
 
 # Environment variables for
-ENV DEBUG_MODE=false
+ENV DEBUG_MODE='false'
 
 # Environment variables for PostgreSQL
 ENV PG_HOST=localhost \
@@ -58,6 +58,6 @@ ENV NGINX_HOST=localhost
 
 # Establish healthcheck for backend
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/api/health
+    CMD curl -f http://127.0.0.1:9000/api/health
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.

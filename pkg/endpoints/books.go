@@ -12,5 +12,6 @@ func GetBooks(c *gin.Context) {
 }
 
 func AddBooks(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
 	c.IndentedJSON(http.StatusOK, models.Books)
 }
