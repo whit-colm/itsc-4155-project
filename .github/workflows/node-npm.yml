@@ -1,7 +1,6 @@
 name: Node
 
 on:
-  workflow_dispatch: {}
   push:
     branches: [ "*" ]
     paths: [ 'website/**' ]
@@ -23,12 +22,17 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version-file: website/package.json
+        node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: ${{github.workspace}}/website/package-lock.json
 
     - name: Install dependencies
-      run: npm install
+      run: |
+        cd  ${{github.workspace}}/website
+        npm install
 
     - name: Run tests
-      run: npm test
+      run:
+        |
+        cd  ${{github.workspace}}/website
+        npm test
