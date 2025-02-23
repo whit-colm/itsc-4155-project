@@ -9,16 +9,16 @@ import (
 )
 
 type postgres struct {
-	db   *pgxpool.Pool
-	err  error
-	once sync.Once
+	db  *pgxpool.Pool
+	err error
 }
 
 func (pg *postgres) Ping() error {
 	return pg.db.Ping(context.Background())
 }
 
-var connection *postgres
+var connection *postgres = &postgres{}
+var connOnce sync.Once
 
 // Establish database connection.
 //
@@ -28,15 +28,17 @@ var connection *postgres
 // all other methods.
 //
 // Make sure to defer *Disconnect()* after connecting.
-func Connect(uri string) (err error) {
-	connection.once.Do(func() {
+func Connect(uri string) (db *pgxpool.Pool, err error) {
+	connOnce.Do(func() {
 		db, err := pgxpool.New(context.Background(), uri)
 		if err != nil {
 			connection.err = fmt.Errorf("failed to parse URI: `%w`", err)
+			return
 		}
 		connection.db = db
 	})
 	err = connection.err
+	db = connection.db
 	connection.err = nil
 
 	return
