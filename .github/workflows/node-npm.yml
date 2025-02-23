@@ -11,10 +11,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [22, 'latest']
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -22,13 +18,12 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: "website/package-lock.json"
         node-version-file: "website/package.json"
 
     - name: Install dependencies
-      run: npm install
+      run: npm ci
 
     - name: Run tests
       run: npm test
