@@ -30,7 +30,7 @@ jobs:
     - name: Install dependencies
       run: |
         cd  ${{github.workspace}}/website
-        npm install
+        npm ci
 
     - name: Run tests
       run:
