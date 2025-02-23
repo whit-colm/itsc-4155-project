@@ -53,7 +53,18 @@ psql_passwd=$(openssl rand -base64 48)
 
 # ... (flag construction logic remains the same)
 
-docker run --name jaws-psql ${db_flags} -e POSTGRES_PASSWORD=${psql_passwd} -d postgres:17-alpine
-docker run --name jaws-app ${app_flags} -e PG_PASSWORD=${psql_passwd} -d jaws:${jaws_docker_tag}
+# Now we can run our containers with the given flags
+docker run --name jaws-psql ${db_flags} \
+    -e POSTGRES_PASSWORD=${psql_passwd} \
+    -e POSTGRES_USER="jaws" \
+    -e POSTGRES_DB="jaws" \
+    -d postgres:17-alpine
+docker run --name jaws-app ${app_flags} \
+    -e PG_PASSWORD=${psql_passwd} \
+    -e PG_USER="jaws" \
+    -e PG_DATABASE="jaws" \
+    -e PG_HOST="jaws-psql" \
+    -e PG_PORT=${db_port} \
+    -d jaws:${jaws_docker_tag}
 
 trap - EXIT

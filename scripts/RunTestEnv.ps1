@@ -22,12 +22,18 @@ docker build --target webnative -t "jaws:$jawsTag" .
 # Run containers with automatic cleanup (--rm) and default ports
 docker run --rm --name jaws-psql `
     -p 54321:5432 `
+    -e POSTGRES_USER="jaws" `
+    -e POSTGRES_DB="jaws" `
     -e POSTGRES_PASSWORD=$psql_passwd `
     -d postgres:17-alpine
 
 docker run --rm --name jaws-app `
     -p 8080:80 `
     -e PG_PASSWORD=$psql_passwd `
+    -e PG_USER="jaws" `
+    -e PG_DATABASE="jaws" `
+    -e PG_HOST="jaws-psql" `
+    -e PG_PORT=54321 `
     -d "jaws:$jawsTag"
 
 Write-Host "`nContainers running!`nApp: http://localhost:8080`nPostgres: localhost:54321`n"
