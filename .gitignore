@@ -3,6 +3,8 @@
 #############################
 *.nocommit
 **/.DS_Store
+/main
+/itsc-4155-project
 
 ##########################
 ####  Node Workspace  ####
