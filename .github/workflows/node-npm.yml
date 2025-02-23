@@ -20,14 +20,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Use website directory
-      run: |
-        cd website/
-
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version-file: ${{github.workspace}}/website/package.json
         cache: 'npm'
         cache-dependency-path: ${{github.workspace}}/website/package-lock.json
 
