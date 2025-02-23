@@ -33,6 +33,30 @@ func TestNewISBN10(t *testing.T) {
 	}
 }
 
+func TestISBN10JsonMarshal(t *testing.T) {
+	have, _ := m.NewISBN10("0-19-852663-6")
+	want := `{"type":"isbn10","value":"0198526636"}`
+	test, err := have.MarshalJSON()
+
+	if err != nil {
+		t.Errorf("failed to marshal JSON: %s", err)
+	}
+	if string(test) != want {
+		t.Errorf("did not convert: have %s, want %s", test, want)
+	}
+
+	have, _ = m.NewISBN10("0-590-48348-X")
+	want = `{"type":"isbn10","value":"059048348X"}`
+	test, err = have.MarshalJSON()
+
+	if err != nil {
+		t.Errorf("failed to marshal JSON: %s", err)
+	}
+	if string(test) != want {
+		t.Errorf("did not convert: have %s, want %s", test, want)
+	}
+}
+
 func TestISBN10JsonUnmarshal(t *testing.T) {
 	have := `{"type":"isbn10","value":"0198526636"}`
 	want, _ := m.NewISBN10("0198526636")
@@ -77,6 +101,19 @@ func TestNewISBN13(t *testing.T) {
 		t.Errorf("error for `%v`: %s", i13, err)
 	} else if i == isbnZero {
 		t.Errorf("ISBN result was empty")
+	}
+}
+
+func TestISBN13JsonMarshal(t *testing.T) {
+	have, _ := m.NewISBN13("9780141439600")
+	want := `{"type":"isbn13","value":"9780141439600"}`
+	test, err := have.MarshalJSON()
+
+	if err != nil {
+		t.Errorf("failed to marshal JSON: %s", err)
+	}
+	if string(test) != want {
+		t.Errorf("did not convert: have %s, want %s", test, want)
 	}
 }
 
