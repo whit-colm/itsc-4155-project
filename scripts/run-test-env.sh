@@ -41,11 +41,11 @@ print_usage() {
     echo -e "DO NOT USE THIS SCRIPT FOR DEPLOYMENT" >&3
     echo -e >&3
     echo -e "Flags:" >&3
-    echo -e "\t-d -\tEnable demo values in DB" >&3
-    echo -e "\t-t -\tHave pods auto-delete themselves when done" >&3
+    echo -e "\t-d -\t\tEnable demo values in DB" >&3
+    echo -e "\t-t -\t\tHave pods auto-delete themselves when done" >&3
     echo -e "\t-f: [path]\tPath to volume to mount for persistent Postgres" >&3
     echo -e "\t-a: [port]\tPostgres port to expose (default 54321)" >&3
-    echo -e "\t-p: [path]\tNginx port to expose (default 8080)" >&3
+    echo -e "\t-p: [port]\tNginx port to expose (default 8080)" >&3
     exit 2
 }
 

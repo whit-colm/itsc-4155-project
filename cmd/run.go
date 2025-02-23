@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -73,7 +74,7 @@ func Run(args []string) int {
 	}
 
 	// Instantiate a database connection
-	err := db.Connect(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
+	c, err := db.Connect(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
 		runtimeConfig.PsqlUser,
 		runtimeConfig.PsqlPassword,
 		runtimeConfig.PsqlHost,
@@ -83,6 +84,8 @@ func Run(args []string) int {
 		return 8
 	}
 	defer db.Disconnect()
+
+	c.Ping(context.Background())
 
 	// Define the Gin router
 	router := gin.Default()
