@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/whit-colm/itsc-4155-project/pkg/db"
 	"github.com/whit-colm/itsc-4155-project/pkg/endpoints"
 )
 
@@ -32,10 +34,10 @@ func Run(args []string) int {
 	flag.StringVar(&runtimeConfig.GinHost, "host", "localhost", "Hostname to listen to")
 	flag.StringVar(&runtimeConfig.GinPort, "port", "9000", "Port to listen to")
 
-	flag.StringVar(&runtimeConfig.PsqlPassword, "dbdatabase", "postgres", "Database to be used in the PostgreSQL instance")
-	flag.StringVar(&runtimeConfig.PsqlUser, "dbuser", "postgres", "Username for the PostgreSQL user")
+	flag.StringVar(&runtimeConfig.PsqlPassword, "dbdatabase", "jaws", "Database to be used in the PostgreSQL instance")
+	flag.StringVar(&runtimeConfig.PsqlUser, "dbuser", "jaws", "Username for the PostgreSQL user")
 	flag.StringVar(&runtimeConfig.PsqlDatabase, "dbpasswd", "", "Password for the PostgreSQL user")
-	flag.StringVar(&runtimeConfig.PsqlHost, "dbhost", "", "Hostname or IP for the PostgeSQL instance")
+	flag.StringVar(&runtimeConfig.PsqlHost, "dbhost", "127.0.0.1", "Hostname or IP for the PostgeSQL instance")
 	flag.StringVar(&runtimeConfig.PsqlPort, "dbport", "5432", "Port for the PostgreSQL instance")
 
 	flag.Parse()
@@ -57,7 +59,7 @@ func Run(args []string) int {
 
 		runtimeConfig.PsqlHost = os.Getenv("PG_HOST")
 		runtimeConfig.PsqlPort = os.Getenv("PG_PORT")
-		runtimeConfig.PsqlDatabase = os.Getenv("PG_PASSWORD")
+		runtimeConfig.PsqlDatabase = os.Getenv("PG_DATABASE")
 		runtimeConfig.PsqlPassword = os.Getenv("PG_PASSWORD")
 		runtimeConfig.PsqlUser = os.Getenv("PG_USER")
 	}
@@ -71,7 +73,16 @@ func Run(args []string) int {
 	}
 
 	// Instantiate a database connection
-	// TODO: this [make sure it's a goroutine]
+	err := db.Connect(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
+		runtimeConfig.PsqlUser,
+		runtimeConfig.PsqlPassword,
+		runtimeConfig.PsqlHost,
+		runtimeConfig.PsqlPort,
+		runtimeConfig.PsqlDatabase))
+	if err != nil {
+		return 8
+	}
+	defer db.Disconnect()
 
 	// Define the Gin router
 	router := gin.Default()
@@ -80,6 +91,10 @@ func Run(args []string) int {
 	endpoints.Configure(router)
 
 	// Start the router
-	router.Run(runtimeConfig.GinHost + ":" + runtimeConfig.GinPort)
+	err = router.Run(fmt.Sprintf("%v:%v", runtimeConfig.GinHost, runtimeConfig.GinPort))
+	if err != nil {
+		return 2
+	}
+
 	return 0
 }

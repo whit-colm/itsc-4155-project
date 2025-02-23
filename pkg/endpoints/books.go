@@ -4,14 +4,17 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/whit-colm/itsc-4155-project/pkg/models"
+	"github.com/whit-colm/itsc-4155-project/pkg/db"
 )
 
+type BookHandler struct {
+	repo db.BookRepository
+}
+
 func GetBooks(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, models.Books)
+	c.IndentedJSON(http.StatusOK, "{}")
 }
 
 func AddBooks(c *gin.Context) {
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.IndentedJSON(http.StatusOK, models.Books)
+	c.IndentedJSON(http.StatusOK, "{}")
 }
