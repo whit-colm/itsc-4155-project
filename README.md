@@ -82,4 +82,27 @@ Frontend website tooling is located [in the `/website` subdirectory`](website/).
 
 ## Backend
 
-This project's structure is informed by the (unofficial) [golang project layout](https://github.com/golang-standards/project-layout). This section will be updated with further details in future.
+- This project's structure is informed by the (unofficial) [golang project layout](https://github.com/golang-standards/project-layout). This section will be updated with further details in future.
+- Keep [naming conventions](https://google.github.io/styleguide/go/decisions.html) in mind for clarity.
+
+### Testing
+
+> [!IMPORTANT]
+> Tests **must** pass before a merge is accepted! Tests are run via:
+>
+> ```bash
+> go test -v ./...
+> ```
+
+- Go tests should be written in a separate file in the same directory as the source code being tested, but with `_test.go` appended to the name of the source file.
+    - For instance, if you are testing `/pkg/sourcecode.go`, the test file should be `/pkg/sourcecode_test.go`.
+- You will need to import `"testing"`, potentially along with the package you are testing:
+    - If you are **whitebox** testing: the test file's `package` should match the name of the source code you are testing. 
+        - e.g. if `/pkg/sourcecode.go` uses `package mycode`, then `/pkg/sourcecode_test.go` should *also* use `package mycode`
+    - If you are **blackbox** testing: the test file's `package` should use the name of the source code you are testing, *with `_test` appended*. 
+        - e.g. if `/pkg/sourcecode.go` uses `package mycode`, then `/pkg/sourcecode_test.go` should use `package mycode_test`
+        - You will also need to import the package you are testing in this case in addition to `"testing"`
+- Test functions should be named after the original function being tested, but with the `Test` prefix (and optional descriptive suffix for multiple tests); still in `UpperCamelCase`. All test accept a single parameter of `*testing.T`.
+    - If you are testing `AddNumbers(a, b int) int`, perform all your tests in the body of `TestAddNumbers(t *testing.T)`; if you need multiple tests, you can have `TestAddNumbersPositive(t *testing.T)`, `TestAddNumbersNegative(t *testing.T)`, etc
+    - You do not need assert states; tests pass automatically when the function ends without an `Errorf` method on the argument `*testing.T`.
+
