@@ -25,6 +25,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: "website/package-lock.json"
+        node-version-file: "website/package.json"
 
     - name: Install dependencies
       run: npm install
