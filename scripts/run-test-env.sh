@@ -86,7 +86,7 @@ readonly jaws_docker_tag=$(date +%Y%m%d%H%M%S)
 docker build --target webnative -t jaws:${jaws_docker_tag} .
 
 # randomly generate a password for PostgreSQL
-readonly psql_passwd=$(openssl rand -base64 48)
+readonly psql_passwd=openssl rand -base64 48 | tr '+/' '-_'
 
 # We have to run two containers, the app and the database
 # We also have to set runtime flags based on script flags passed.
