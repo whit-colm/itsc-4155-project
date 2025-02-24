@@ -8,7 +8,7 @@ import (
 )
 
 type BookHandler struct {
-	repo db.BookRepository
+	repo db.BookRepositoryManager
 }
 
 func GetBooks(c *gin.Context) {
