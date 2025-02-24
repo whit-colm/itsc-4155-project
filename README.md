@@ -58,21 +58,11 @@ Note that this script should only be used for testing and demo purposes. Full de
 
 ## Building
 
-> [!NOTE]
->
-> TODO: Write this
+TODO: Write this
 
 ## Running
 
-> [!NOTE]
->
-> TODO: Write this
-
-## Deploying
-
-> [!NOTE]
->
-> TODO: Write this or scrap it.
+TODO: Write this
 
 # Organization
 
