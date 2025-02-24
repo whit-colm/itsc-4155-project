@@ -14,6 +14,7 @@ type dataStore struct {
 func (ds *dataStore) Health(c *gin.Context) {
 	if err := ds.store.Ping(c.Request.Context()); err != nil {
 		c.String(http.StatusBadGateway, err.Error())
+		return
 	}
 	c.String(http.StatusOK, "ok")
 }
