@@ -127,7 +127,7 @@ docker run --name jaws-app ${app_flags} \
     -e PG_USER="jaws" \
     -e PG_DATABASE="jaws" \
     -e PG_HOST="jaws-psql" \
-    -e PG_PORT=${db_port} \
+    -e PG_PORT=5432 \
     -d jaws:${jaws_docker_tag}
 
 # end of script. Therefore the only time failure should be untrapped.
