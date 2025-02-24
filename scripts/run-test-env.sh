@@ -80,20 +80,25 @@ done
 cd "${ABS_DIR}"
 cd "$(git rev-parse --show-toplevel)"
 
+# We need a network for these two to communicate on if we want them to
+# see each other. This will fail if it already exists so we use the
+# double pipe
+docker network create --driver bridge jaws-net || true
+
 # Get the time in YYYYMMDDhhmmss and set it as the docker tag for this build
 # (i.e. 2025-02-13 22:42:51 should be rendered as 20250213224251)
 readonly jaws_docker_tag=$(date +%Y%m%d%H%M%S)
 docker build --target webnative -t jaws:${jaws_docker_tag} .
 
 # randomly generate a password for PostgreSQL
-readonly psql_passwd=openssl rand -base64 48 | tr '+/' '-_'
+readonly psql_passwd=$(openssl rand -base64 48 | tr '+/' '-_')
 
 # We have to run two containers, the app and the database
 # We also have to set runtime flags based on script flags passed.
 # we can set some flags already because app_port and db_port are always
 # set.
-db_flags="-p ${db_port}:5432 "
-app_flags="-p ${app_port}:80 "
+db_flags="-p ${db_port}:5432 --network jaws-net "
+app_flags="-p ${app_port}:80 --network jaws-net "
 
 # check if we should use demo values
 # TODO: implement demo values
