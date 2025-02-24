@@ -2,22 +2,20 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
 type postgres struct {
-	db  *pgxpool.Pool
-	err error
+	db *pgxpool.Pool
 }
 
-func (pg *postgres) Ping() error {
-	return pg.db.Ping(context.Background())
+func (pg *postgres) Ping(ctx context.Context) error {
+	return pg.db.Ping(ctx)
 }
 
-var connection *postgres = &postgres{}
 var connOnce sync.Once
 
 // Establish database connection.
@@ -28,25 +26,26 @@ var connOnce sync.Once
 // all other methods.
 //
 // Make sure to defer *Disconnect()* after connecting.
-func Connect(uri string) (db *pgxpool.Pool, err error) {
+func New(uri string) (*postgres, error) {
+	s := &postgres{}
+	var err error
 	connOnce.Do(func() {
-		db, err := pgxpool.New(context.Background(), uri)
-		if err != nil {
-			connection.err = fmt.Errorf("failed to parse URI: `%w`", err)
-			return
-		}
-		connection.db = db
+		s.db, err = pgxpool.New(context.Background(), uri)
 	})
-	err = connection.err
-	db = connection.db
-	connection.err = nil
+	return s, err
+}
 
+func NewRepository(uri string) (r repository.Repository, err error) {
+	db, err := New(uri)
+	r.Store = db
+	r.Book = newBookRepository(db)
 	return
 }
 
 // Disconnect the connection.
 //
 // If one has not been established, this will do nothing.
-func Disconnect() {
-	connection.db.Close()
+func (pg *postgres) Disconnect() error {
+	pg.db.Close()
+	return nil
 }

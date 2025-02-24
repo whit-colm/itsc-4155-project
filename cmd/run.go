@@ -73,29 +73,32 @@ func Run(args []string) int {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Instantiate a database connection
-	c, err := db.Connect(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
+	// Instantiate a new stored... something
+	// Although in our case it should only ever be a db.postgres instance
+	c, err := db.NewRepository(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
 		runtimeConfig.PsqlUser,
 		runtimeConfig.PsqlPassword,
 		runtimeConfig.PsqlHost,
 		runtimeConfig.PsqlPort,
 		runtimeConfig.PsqlDatabase))
 	if err != nil {
+		fmt.Printf("error connecting to datastore: %s\n", err)
 		return 8
 	}
-	defer db.Disconnect()
+	defer c.Store.Disconnect()
 
-	c.Ping(context.Background())
+	c.Store.Ping(context.Background())
 
 	// Define the Gin router
 	router := gin.Default()
 
 	// Set up endpoints
-	endpoints.Configure(router)
+	endpoints.Configure(router, &c)
 
 	// Start the router
 	err = router.Run(fmt.Sprintf("%v:%v", runtimeConfig.GinHost, runtimeConfig.GinPort))
 	if err != nil {
+		fmt.Printf("error running gin: %s\n", err)
 		return 2
 	}
 
