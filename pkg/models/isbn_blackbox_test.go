@@ -1,132 +1,157 @@
-package models_test
+package models
 
 import (
+	"encoding/json"
 	"testing"
-
-	m "github.com/whit-colm/itsc-4155-project/pkg/models"
 )
 
-func TestNewISBN10(t *testing.T) {
-	i10 := "0-19-852663-6"
-	isbnZero := m.ISBN10{}
-	i, err := m.NewISBN10(i10)
-	if err != nil {
-		t.Errorf("error for `%v`: %s", i10, err)
-	} else if i == isbnZero {
-		t.Errorf("ISBN result was empty")
+func TestIsbnVersionMethods(t *testing.T) {
+	// Test String() method
+	if ISBN10.String() != "isbn10" {
+		t.Errorf("Expected ISBN10.String() to return 'isbn10', got: %s", ISBN10.String())
+	}
+	if ISBN13.String() != "isbn13" {
+		t.Errorf("Expected ISBN13.String() to return 'isbn13', got: %s", ISBN13.String())
 	}
 
-	i10 = "0-590-48348-X"
-	i, err = m.NewISBN10(i10)
-	if err != nil {
-		t.Errorf("error for `%v`: %s", i10, err)
-	} else if i == isbnZero {
-		t.Errorf("ISBN result was empty")
+	// Test Len() method
+	if ISBN10.Len() != 10 {
+		t.Errorf("Expected ISBN10.Len() to return 10, got: %d", ISBN10.Len())
+	}
+	if ISBN13.Len() != 13 {
+		t.Errorf("Expected ISBN13.Len() to return 13, got: %d", ISBN13.Len())
 	}
 
-	i10 = "0590483489"
-	i, err = m.NewISBN10(i10)
+	// Test regex() method returns non-nil values
+	if ISBN10.regex() == nil {
+		t.Error("Expected non-nil regex for ISBN10")
+	}
+	if ISBN13.regex() == nil {
+		t.Error("Expected non-nil regex for ISBN13")
+	}
+}
+
+func TestNewISBN_ValidISBN10(t *testing.T) {
+	// A known valid ISBN10 (hyphens are allowed)
+	valid := "0-306-40615-2"
+	isbn, err := NewISBN(valid, ISBN10)
+	if err != nil {
+		t.Fatalf("Expected valid ISBN10, got error: %v", err)
+	}
+	if !isbn.Check() {
+		t.Errorf("Check() returned false for valid ISBN10: %s", valid)
+	}
+}
+
+func TestNewISBN_InvalidISBN10(t *testing.T) {
+	// An ISBN10 with an incorrect check digit
+	invalid := "0306406153"
+	_, err := NewISBN(invalid, ISBN10)
 	if err == nil {
-		t.Errorf("undue validation for `%v`", i10)
-	} else if i != isbnZero {
-		t.Errorf("ISBN was not empty and should have been.")
+		t.Errorf("Expected error for invalid ISBN10: %s", invalid)
 	}
 }
 
-func TestISBN10JsonMarshal(t *testing.T) {
-	have, _ := m.NewISBN10("0-19-852663-6")
-	want := `{"type":"isbn10","value":"0198526636"}`
-	test, err := have.MarshalJSON()
-
+func TestNewISBN_ValidISBN10WithX(t *testing.T) {
+	// A valid ISBN10 where the last digit is "X" (representing 10)
+	valid := "007462542X"
+	isbn, err := NewISBN(valid, ISBN10)
 	if err != nil {
-		t.Errorf("failed to marshal JSON: %s", err)
+		t.Fatalf("Expected valid ISBN10 with X, got error: %v", err)
 	}
-	if string(test) != want {
-		t.Errorf("did not convert: have %s, want %s", test, want)
-	}
-
-	have, _ = m.NewISBN10("0-590-48348-X")
-	want = `{"type":"isbn10","value":"059048348X"}`
-	test, err = have.MarshalJSON()
-
-	if err != nil {
-		t.Errorf("failed to marshal JSON: %s", err)
-	}
-	if string(test) != want {
-		t.Errorf("did not convert: have %s, want %s", test, want)
+	if !isbn.Check() {
+		t.Errorf("Check() returned false for valid ISBN10 with X: %s", valid)
 	}
 }
 
-func TestISBN10JsonUnmarshal(t *testing.T) {
-	have := `{"type":"isbn10","value":"0198526636"}`
-	want, _ := m.NewISBN10("0198526636")
-	test := m.ISBN10{}
-
-	err := test.UnmarshalJSON([]byte(have))
+func TestNewISBN_ValidISBN13(t *testing.T) {
+	// A known valid ISBN13
+	valid := "9780306406157"
+	isbn, err := NewISBN(valid, ISBN13)
 	if err != nil {
-		t.Errorf("unable to unmarshal: %s", err)
+		t.Fatalf("Expected valid ISBN13, got error: %v", err)
 	}
-	if test.String() != want.String() {
-		t.Errorf("not equal: want %v; have %v", want, test)
-	}
-
-	have = `{"type":"isbn10","value":"0-590-48348-X"}`
-	want, _ = m.NewISBN10("059048348X")
-	test = m.ISBN10{}
-
-	err = test.UnmarshalJSON([]byte(have))
-	if err != nil {
-		t.Errorf("unable to unmarshal: %s", err)
-	}
-	if test.String() != want.String() {
-		t.Errorf("not equal: want %v; have %v", want, test)
+	if !isbn.Check() {
+		t.Errorf("Check() returned false for valid ISBN13: %s", valid)
 	}
 }
 
-/// Test ISBN13 ///
-
-func TestNewISBN13(t *testing.T) {
-	i13 := "9780061122415"
-	isbnZero := m.ISBN13{}
-	i, err := m.NewISBN13(i13)
-	if err != nil {
-		t.Errorf("error for `%v`: %s", i13, err)
-	} else if i == isbnZero {
-		t.Errorf("ISBN result was empty")
-	}
-
-	i13 = "978-0141439600"
-	i, err = m.NewISBN13(i13)
-	if err != nil {
-		t.Errorf("error for `%v`: %s", i13, err)
-	} else if i == isbnZero {
-		t.Errorf("ISBN result was empty")
+func TestNewISBN_InvalidISBN13(t *testing.T) {
+	// An ISBN13 with an incorrect check digit
+	invalid := "9780306406158"
+	_, err := NewISBN(invalid, ISBN13)
+	if err == nil {
+		t.Errorf("Expected error for invalid ISBN13: %s", invalid)
 	}
 }
 
-func TestISBN13JsonMarshal(t *testing.T) {
-	have, _ := m.NewISBN13("9780141439600")
-	want := `{"type":"isbn13","value":"9780141439600"}`
-	test, err := have.MarshalJSON()
-
+func TestMarshalJSON_ValidISBN(t *testing.T) {
+	// Create a valid ISBN10 and marshal it to JSON.
+	// The JSON output should include the type "isbn10" and a cleaned-up value (digits only).
+	valid := "0-306-40615-2"
+	isbn, err := NewISBN(valid, ISBN10)
 	if err != nil {
-		t.Errorf("failed to marshal JSON: %s", err)
+		t.Fatalf("Error creating ISBN: %v", err)
 	}
-	if string(test) != want {
-		t.Errorf("did not convert: have %s, want %s", test, want)
+	data, err := json.Marshal(isbn)
+	if err != nil {
+		t.Fatalf("MarshalJSON returned error: %v", err)
+	}
+
+	// Unmarshal the JSON into a temporary structure to verify its fields.
+	var out struct {
+		Type  string `json:"type"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		t.Fatalf("Error unmarshalling JSON: %v", err)
+	}
+	if out.Type != "isbn10" {
+		t.Errorf("Expected type 'isbn10', got: %s", out.Type)
+	}
+	// The cleaned value should contain only digits (and "X" replaced as needed).
+	if out.Value != "0306406152" {
+		t.Errorf("Expected value '0306406152', got: %s", out.Value)
 	}
 }
 
-func TestISBN13JsonUnmarshal(t *testing.T) {
-	have := `{"type":"isbn13","value":"978-0141439600"}`
-	want, _ := m.NewISBN13("9780141439600")
-	test := m.ISBN13{}
-
-	err := test.UnmarshalJSON([]byte(have))
-	if err != nil {
-		t.Errorf("unable to unmarshal: %s", err)
+func TestMarshalJSON_InvalidISBN(t *testing.T) {
+	// Manually construct an ISBN that fails the Check() method.
+	isbn := ISBN{"invalid-isbn", ISBN10}
+	_, err := json.Marshal(isbn)
+	if err == nil {
+		t.Error("Expected error when marshalling an invalid ISBN, but got none")
 	}
-	if test.String() != want.String() {
-		t.Errorf("not equal: want %v; have %v", want, test)
+}
+
+func TestUnmarshalJSON_ValidISBN10(t *testing.T) {
+	// Test unmarshalling valid JSON for an ISBN10.
+	jsonData := []byte(`{"type": "isbn10", "value": "0-306-40615-2"}`)
+	var isbn ISBN
+	if err := json.Unmarshal(jsonData, &isbn); err != nil {
+		t.Fatalf("UnmarshalJSON returned error: %v", err)
+	}
+	if !isbn.Check() {
+		t.Errorf("Unmarshalled ISBN did not pass Check(): %v", isbn)
+	}
+}
+
+func TestUnmarshalJSON_InvalidType(t *testing.T) {
+	// Test unmarshalling JSON with an unrecognized ISBN type.
+	jsonData := []byte(`{"type": "isbn15", "value": "0-306-40615-2"}`)
+	var isbn ISBN
+	err := json.Unmarshal(jsonData, &isbn)
+	if err == nil {
+		t.Error("Expected error for invalid ISBN type in JSON, but got none")
+	}
+}
+
+func TestUnmarshalJSON_InvalidValue(t *testing.T) {
+	// Test unmarshalling JSON where the ISBN value fails the check.
+	jsonData := []byte(`{"type": "isbn10", "value": "0306406153"}`)
+	var isbn ISBN
+	err := json.Unmarshal(jsonData, &isbn)
+	if err == nil {
+		t.Error("Expected error for invalid ISBN value in JSON, but got none")
 	}
 }

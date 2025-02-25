@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/whit-colm/itsc-4155-project/pkg/models"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
@@ -22,6 +23,25 @@ func (bh *bookHandle) GetBooks(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, s)
+}
+
+func (bh *bookHandle) GetBookByID(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError,
+			jsonParsableError{Summary: "Unable to parse UUID",
+				Details: err})
+		return
+	}
+
+	s, err := bh.repo.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound,
+			jsonParsableError{Summary: "Could not find book with ID",
+				Details: err})
+		return
+	}
+	c.JSON(http.StatusOK, *s)
 }
 
 func (bh *bookHandle) AddBook(c *gin.Context) {
@@ -48,5 +68,5 @@ func (bh *bookHandle) AddBook(c *gin.Context) {
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, &b)
+	c.IndentedJSON(http.StatusOK, b)
 }

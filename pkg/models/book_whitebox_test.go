@@ -18,7 +18,7 @@ func init() {
 	}
 	booksExample = append(booksExample, Book{
 		u,
-		[]ISBNFormatter{&ISBN10{"0141439602"}, &ISBN13{"9780141439600"}},
+		[]ISBN{{"0141439602", ISBN10}, {"9780141439600", ISBN13}},
 		"A Tale of Two Cities",
 		"Charles Dickens",
 		civil.Date{Year: 1859, Month: time.November, Day: 26},
@@ -30,7 +30,7 @@ func init() {
 	}
 	booksExample = append(booksExample, Book{
 		u,
-		[]ISBNFormatter{&ISBN10{"0156012197"}, &ISBN13{"9780156012195"}},
+		[]ISBN{{"0156012197", ISBN10}, {"9780156012195", ISBN13}},
 		"The Little Prince",
 		"Antoine de Saint-Exupéry",
 		civil.Date{Year: 1943, Month: time.April},
@@ -42,7 +42,7 @@ func init() {
 	}
 	booksExample = append(booksExample, Book{
 		u,
-		[]ISBNFormatter{&ISBN10{"0062315005"}, &ISBN13{"9780061122415"}},
+		[]ISBN{{"0062315005", ISBN10}, {"9780061122415", ISBN13}},
 		"The Alchemist",
 		"Paulo Coelho",
 		civil.Date{Year: 1988},
