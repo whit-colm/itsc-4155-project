@@ -25,7 +25,7 @@ RUN npm install ; \
 ## A webnative deployment should have a database external to itself.
 ## This is useful for testing and debugging purposes - because of how
 ## complex postgres is, we use it as a base for the monolith
-FROM nginx:1-alpine AS webnative
+FROM nginx:1-alpine AS app
 
 # copy outputs compiled in prior steps
 COPY --from=backend /app/jaws /app/jaws
@@ -61,3 +61,7 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
     CMD curl -f http://127.0.0.1:9000/api/health
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.
+
+FROM postgres:17-alpine AS psql
+
+COPY build/migrations/ /docker-entrypoint-initdb.d/

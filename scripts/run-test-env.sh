@@ -88,7 +88,8 @@ docker network create --driver bridge jaws-net || true
 # Get the time in YYYYMMDDhhmmss and set it as the docker tag for this build
 # (i.e. 2025-02-13 22:42:51 should be rendered as 20250213224251)
 readonly jaws_docker_tag=$(date +%Y%m%d%H%M%S)
-docker build --target webnative -t jaws:${jaws_docker_tag} .
+docker build --target app -t jaws-app:${jaws_docker_tag} .
+docker build --target psql -t jaws-psql:${jaws_docker_tag} .
 
 # randomly generate a password for PostgreSQL
 readonly psql_passwd=$(openssl rand -base64 48 | tr '+/' '-_')
@@ -116,19 +117,19 @@ if [[ -n "${persistence}" ]]; then
 fi
 
 # Now we can run our containers with the given flags
-docker run --name jaws-psql ${db_flags} \
+docker run --name my-jaws-psql ${db_flags} \
     -e POSTGRES_PASSWORD=${psql_passwd} \
     -e POSTGRES_USER="jaws" \
     -e POSTGRES_DB="jaws" \
-    -d postgres:17-alpine
+    -d jaws-psql:${jaws_docker_tag}
 
-docker run --name jaws-app ${app_flags} \
+docker run --name my-jaws-app ${app_flags} \
     -e PG_PASSWORD=${psql_passwd} \
     -e PG_USER="jaws" \
     -e PG_DATABASE="jaws" \
-    -e PG_HOST="jaws-psql" \
+    -e PG_HOST="my-jaws-psql" \
     -e PG_PORT=5432 \
-    -d jaws:${jaws_docker_tag}
+    -d jaws-app:${jaws_docker_tag}
 
 # end of script. Therefore the only time failure should be untrapped.
 trap - EXIT
