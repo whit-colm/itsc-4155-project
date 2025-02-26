@@ -32,6 +32,7 @@ func New(uri string) (*postgres, error) {
 	connOnce.Do(func() {
 		s.db, err = pgxpool.New(context.Background(), uri)
 	})
+
 	return s, err
 }
 
