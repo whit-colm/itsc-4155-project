@@ -15,10 +15,14 @@ var br bookRepository
 // ganrly together, so we instead pass an env var. Yes I know this has
 // Issues:tm: with Windows
 func TestMain(m *testing.M) {
-	// Not all devices are
-	uriString := os.Getenv("DB_URL")
+	// Not all devices are equipped to test the DB code, and that's ok
+	// (well not really, but we're too poor and strapped for time to do
+	// anything). So we check a db uri from ENV vars, if one exists we
+	// use it and fail tests; otherwise we "pass" and skip the whole
+	// sordid affair.
+	uriString := os.Getenv("DB_URI")
 	if uriString == "" {
-		fmt.Printf("skipping tests; empty DB_URL variable.\n")
+		fmt.Printf("skipping tests; empty `DB_URI` variable.\n")
 		os.Exit(0)
 	}
 
