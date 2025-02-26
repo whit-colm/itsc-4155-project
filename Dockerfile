@@ -4,10 +4,10 @@
 FROM golang:1.24-alpine AS backend
 WORKDIR /app
 
-COPY go.mod ./
-COPY go.sum ./
-COPY main.go ./
-COPY pkg ./pkg
+COPY go.mod ./ 
+COPY go.sum ./ 
+COPY main.go ./ 
+COPY pkg ./pkg 
 COPY cmd ./cmd
 
 RUN go build -o jaws main.go

@@ -92,3 +92,15 @@ a {
 a:hover {
   text-decoration: underline;
 }
+
+.App-logo-link {
+  display: flex;
+  align-items: center;
+}
+
+.App-logo-text {
+  margin-left: 10px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}

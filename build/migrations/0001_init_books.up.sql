@@ -8,7 +8,7 @@ CREATE TABLE books (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
---- ISBNs table with full text search
+-- ISBNs table with full text search
 CREATE TABLE isbns (
     isbn VARCHAR(17) PRIMARY KEY CHECK (LENGTH(isbn) IN (10, 13)),
     book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
