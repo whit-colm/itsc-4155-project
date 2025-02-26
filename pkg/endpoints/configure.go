@@ -19,4 +19,5 @@ func Configure(router *gin.Engine, rp *repository.Repository) {
 	router.GET("/api/books", b.GetBooks)
 	router.POST("/api/books/new", b.AddBook)
 	router.GET("/api/books/:id", b.GetBookByID)
+	router.GET("/api/books/isbn/:isbn", b.GetBookByISBN)
 }

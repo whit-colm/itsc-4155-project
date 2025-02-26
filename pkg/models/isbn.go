@@ -45,8 +45,20 @@ func (v IsbnVersion) Len() int {
  **************** ISBN ****************
  **************************************/
 
-func NewISBN(from string, ver IsbnVersion) (ISBN, error) {
-	i := ISBN{from, ver}
+func NewISBN(from string, ver ...IsbnVersion) (ISBN, error) {
+	var i ISBN
+	switch len(ver) {
+	case 0:
+		if len(ISBN10.regex().FindAllString(from, -1)) == 10 {
+			i = ISBN{from, ISBN10}
+		} else if len(ISBN13.regex().FindAllString(from, -1)) == 13 {
+			i = ISBN{from, ISBN13}
+		} else {
+			return i, fmt.Errorf("unable to infer ISBN version: %s", from)
+		}
+	default:
+		i = ISBN{from, ver[0]}
+	}
 
 	if !i.Check() {
 		return ISBN{}, fmt.Errorf("could not parse into ISBN: %s as %s", from, ver)
@@ -62,6 +74,10 @@ type ISBN struct {
 
 func (i ISBN) String() string {
 	return i.isbn
+}
+
+func (i ISBN) Version() IsbnVersion {
+	return i.version
 }
 
 func (i ISBN) Check() bool {

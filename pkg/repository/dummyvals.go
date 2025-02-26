@@ -2,12 +2,6 @@ package repository
 
 import "context"
 
-type Migrator interface {
-	// Perform necessary migrations to allow a datastore to be used by
-	// the app.
-	Migrate(ctx context.Context) error
-}
-
 // DummyPopulator prepares any type (though it should be a repository)
 // to populate its data storage instance with demonstration values for
 // testing purposes.

@@ -28,4 +28,5 @@ type BookManager interface {
 	Create(ctx context.Context, book *models.Book) error
 	GetByID(ctx context.Context, id uuid.UUID) (*models.Book, error)
 	Search(ctx context.Context) ([]models.Book, error)
+	GetByISBN(ctx context.Context, isbn models.ISBN) (uuid.UUID, *models.Book, error)
 }

@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,9 +29,10 @@ func (bh *bookHandle) GetBooks(c *gin.Context) {
 func (bh *bookHandle) GetBookByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,
+		c.JSON(http.StatusBadRequest,
 			jsonParsableError{Summary: "Unable to parse UUID",
-				Details: err})
+				Details: err},
+		)
 		return
 	}
 
@@ -42,6 +44,28 @@ func (bh *bookHandle) GetBookByID(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, *s)
+}
+
+// This is a bit hacky, but it's just a redirect to the UUID page.
+func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
+	isbn, err := models.NewISBN(c.Param("ISBN"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest,
+			jsonParsableError{Summary: "Unable to parse ISBN",
+				Details: err},
+		)
+		return
+	}
+
+	id, _, err := bh.repo.GetByISBN(c.Request.Context(), isbn)
+	if err != nil {
+		c.JSON(http.StatusNotFound,
+			jsonParsableError{Summary: "Could not find book with ISBN",
+				Details: err},
+		)
+		return
+	}
+	c.Redirect(http.StatusFound, fmt.Sprintf("/api/books/%s", id))
 }
 
 func (bh *bookHandle) AddBook(c *gin.Context) {
