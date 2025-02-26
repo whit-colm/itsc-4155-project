@@ -49,15 +49,16 @@ func NewISBN(from string, ver ...IsbnVersion) (ISBN, error) {
 	var i ISBN
 	switch len(ver) {
 	case 0:
-		if len(ISBN10.regex().FindAllString(from, -1)) == 10 {
-			i = ISBN{from, ISBN10}
-		} else if len(ISBN13.regex().FindAllString(from, -1)) == 13 {
-			i = ISBN{from, ISBN13}
+		if i10s := ISBN10.regex().FindAllString(from, -1); len(i10s) == 10 {
+			i = ISBN{strings.Join(i10s, ""), ISBN10}
+		} else if i13s := ISBN13.regex().FindAllString(from, -1); len(i13s) == 13 {
+			i = ISBN{strings.Join(i13s, ""), ISBN13}
 		} else {
 			return i, fmt.Errorf("unable to infer ISBN version: %s", from)
 		}
 	default:
-		i = ISBN{from, ver[0]}
+		is := ver[0].regex().FindAllString(from, -1)
+		i = ISBN{strings.Join(is, ""), ver[0]}
 	}
 
 	if !i.Check() {
@@ -65,6 +66,15 @@ func NewISBN(from string, ver ...IsbnVersion) (ISBN, error) {
 	}
 
 	return i, nil
+}
+
+// Forcibly create a new ISBN, panicking if one cannot be created.
+func MustNewISBN(from string, ver ...IsbnVersion) ISBN {
+	if i, err := NewISBN(from, ver...); err != nil {
+		panic(`error creating ISBN: '` + err.Error() + `'`)
+	} else {
+		return i
+	}
 }
 
 type ISBN struct {

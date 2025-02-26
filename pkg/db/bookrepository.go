@@ -53,6 +53,32 @@ func (b *bookRepository) Create(ctx context.Context, book *models.Book) error {
 	return tx.Commit(ctx)
 }
 
+func (b *bookRepository) Delete(ctx context.Context, book *models.Book) error {
+	tx, err := b.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var id uuid.UUID
+	if err := tx.QueryRow(ctx,
+		`DELETE FROM books b
+		 WHERE b.id = $1
+		 RETURNING id`,
+		book.ID).Scan(&id); err != nil {
+		return fmt.Errorf("failed to delete book: %w", err)
+	}
+
+	if id != book.ID {
+		return fmt.Errorf("wrong book was deleted. want: `%v`; have: `%v`", book.ID, id)
+	}
+
+	// We shouldn't have to delete the ISBNs ourselves, on delete they
+	// cascade
+
+	return tx.Commit(ctx)
+}
+
 // GetByID implements BookRepositoryManager.
 func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Book, error) {
 	var book models.Book
@@ -74,13 +100,14 @@ func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Boo
 			) AS isbns
 		FROM books b
 		LEFT JOIN isbns i ON b.id = i.book_id
-		WHERE b.id = $1`,
+		WHERE b.id = $1
+		GROUP BY b.id`,
 		id,
 	).Scan(
 		&book.ID, &book.Title, &book.Author,
 		&published, &isbns,
 	); err != nil {
-		return nil, handlePGError(err, "find by ISBN")
+		return nil, err
 	}
 
 	book.Published = civil.DateOf(published)
@@ -123,7 +150,7 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn models.ISBN) (uuid.
 		&book.ID, &book.Title, &book.Author,
 		&published, &isbns,
 	); err != nil {
-		return uuid.Nil, nil, handlePGError(err, "find by ISBN")
+		return uuid.Nil, nil, err
 	}
 
 	book.Published = civil.DateOf(published)

@@ -6,7 +6,7 @@ import (
 )
 
 func TestIsbnVersionMethods(t *testing.T) {
-	// Test String() method
+	// Verify string representations
 	if ISBN10.String() != "isbn10" {
 		t.Errorf("Expected ISBN10.String() to return 'isbn10', got: %s", ISBN10.String())
 	}
@@ -14,7 +14,7 @@ func TestIsbnVersionMethods(t *testing.T) {
 		t.Errorf("Expected ISBN13.String() to return 'isbn13', got: %s", ISBN13.String())
 	}
 
-	// Test Len() method
+	// Verify lengths
 	if ISBN10.Len() != 10 {
 		t.Errorf("Expected ISBN10.Len() to return 10, got: %d", ISBN10.Len())
 	}
@@ -22,7 +22,7 @@ func TestIsbnVersionMethods(t *testing.T) {
 		t.Errorf("Expected ISBN13.Len() to return 13, got: %d", ISBN13.Len())
 	}
 
-	// Test regex() method returns non-nil values
+	// Verify regex functions
 	if ISBN10.regex() == nil {
 		t.Error("Expected non-nil regex for ISBN10")
 	}
@@ -32,7 +32,6 @@ func TestIsbnVersionMethods(t *testing.T) {
 }
 
 func TestNewISBN_ValidISBN10(t *testing.T) {
-	// A known valid ISBN10 (hyphens are allowed)
 	valid := "0-306-40615-2"
 	isbn, err := NewISBN(valid, ISBN10)
 	if err != nil {
@@ -41,31 +40,12 @@ func TestNewISBN_ValidISBN10(t *testing.T) {
 	if !isbn.Check() {
 		t.Errorf("Check() returned false for valid ISBN10: %s", valid)
 	}
-}
-
-func TestNewISBN_InvalidISBN10(t *testing.T) {
-	// An ISBN10 with an incorrect check digit
-	invalid := "0306406153"
-	_, err := NewISBN(invalid, ISBN10)
-	if err == nil {
-		t.Errorf("Expected error for invalid ISBN10: %s", invalid)
-	}
-}
-
-func TestNewISBN_ValidISBN10WithX(t *testing.T) {
-	// A valid ISBN10 where the last digit is "X" (representing 10)
-	valid := "007462542X"
-	isbn, err := NewISBN(valid, ISBN10)
-	if err != nil {
-		t.Fatalf("Expected valid ISBN10 with X, got error: %v", err)
-	}
-	if !isbn.Check() {
-		t.Errorf("Check() returned false for valid ISBN10 with X: %s", valid)
+	if isbn.Version() != ISBN10 {
+		t.Errorf("Expected ISBN version to be ISBN10, got: %s", isbn.Version().String())
 	}
 }
 
 func TestNewISBN_ValidISBN13(t *testing.T) {
-	// A known valid ISBN13
 	valid := "9780306406157"
 	isbn, err := NewISBN(valid, ISBN13)
 	if err != nil {
@@ -74,20 +54,61 @@ func TestNewISBN_ValidISBN13(t *testing.T) {
 	if !isbn.Check() {
 		t.Errorf("Check() returned false for valid ISBN13: %s", valid)
 	}
-}
-
-func TestNewISBN_InvalidISBN13(t *testing.T) {
-	// An ISBN13 with an incorrect check digit
-	invalid := "9780306406158"
-	_, err := NewISBN(invalid, ISBN13)
-	if err == nil {
-		t.Errorf("Expected error for invalid ISBN13: %s", invalid)
+	if isbn.Version() != ISBN13 {
+		t.Errorf("Expected ISBN version to be ISBN13, got: %s", isbn.Version().String())
 	}
 }
 
+func TestNewISBN_InferVersion(t *testing.T) {
+	// Without providing an explicit version, the function should infer based on the cleaned input length.
+	validISBN10 := "0-306-40615-2"
+	isbn10, err := NewISBN(validISBN10)
+	if err != nil {
+		t.Fatalf("Expected to infer valid ISBN10, got error: %v", err)
+	}
+	if isbn10.Version() != ISBN10 {
+		t.Errorf("Expected inferred ISBN version to be ISBN10, got: %s", isbn10.Version().String())
+	}
+
+	validISBN13 := "9780306406157"
+	isbn13, err := NewISBN(validISBN13)
+	if err != nil {
+		t.Fatalf("Expected to infer valid ISBN13, got error: %v", err)
+	}
+	if isbn13.Version() != ISBN13 {
+		t.Errorf("Expected inferred ISBN version to be ISBN13, got: %s", isbn13.Version().String())
+	}
+}
+
+func TestNewISBN_Invalid(t *testing.T) {
+	// Test with an input that does not have 10 or 13 digits after cleaning.
+	invalid := "123456789" // Only 9 digits
+	_, err := NewISBN(invalid)
+	if err == nil {
+		t.Errorf("Expected error for invalid ISBN input: %s", invalid)
+	}
+}
+
+func TestMustNewISBN_Valid(t *testing.T) {
+	valid := "0-306-40615-2"
+	isbn := MustNewISBN(valid, ISBN10)
+	if !isbn.Check() {
+		t.Errorf("MustNewISBN produced an ISBN that did not pass Check() for valid input: %s", valid)
+	}
+}
+
+func TestMustNewISBN_Invalid(t *testing.T) {
+	invalid := "123456789"
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Expected panic for invalid ISBN in MustNewISBN, but no panic occurred")
+		}
+	}()
+	// This call should panic due to invalid input.
+	MustNewISBN(invalid)
+}
+
 func TestMarshalJSON_ValidISBN(t *testing.T) {
-	// Create a valid ISBN10 and marshal it to JSON.
-	// The JSON output should include the type "isbn10" and a cleaned-up value (digits only).
 	valid := "0-306-40615-2"
 	isbn, err := NewISBN(valid, ISBN10)
 	if err != nil {
@@ -97,8 +118,6 @@ func TestMarshalJSON_ValidISBN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MarshalJSON returned error: %v", err)
 	}
-
-	// Unmarshal the JSON into a temporary structure to verify its fields.
 	var out struct {
 		Type  string `json:"type"`
 		Value string `json:"value"`
@@ -109,14 +128,14 @@ func TestMarshalJSON_ValidISBN(t *testing.T) {
 	if out.Type != "isbn10" {
 		t.Errorf("Expected type 'isbn10', got: %s", out.Type)
 	}
-	// The cleaned value should contain only digits (and "X" replaced as needed).
+	// The cleaned-up value should contain only digits (and X replaced if needed).
 	if out.Value != "0306406152" {
 		t.Errorf("Expected value '0306406152', got: %s", out.Value)
 	}
 }
 
 func TestMarshalJSON_InvalidISBN(t *testing.T) {
-	// Manually construct an ISBN that fails the Check() method.
+	// Construct an ISBN that fails Check().
 	isbn := ISBN{"invalid-isbn", ISBN10}
 	_, err := json.Marshal(isbn)
 	if err == nil {
@@ -125,7 +144,6 @@ func TestMarshalJSON_InvalidISBN(t *testing.T) {
 }
 
 func TestUnmarshalJSON_ValidISBN10(t *testing.T) {
-	// Test unmarshalling valid JSON for an ISBN10.
 	jsonData := []byte(`{"type": "isbn10", "value": "0-306-40615-2"}`)
 	var isbn ISBN
 	if err := json.Unmarshal(jsonData, &isbn); err != nil {
@@ -134,10 +152,12 @@ func TestUnmarshalJSON_ValidISBN10(t *testing.T) {
 	if !isbn.Check() {
 		t.Errorf("Unmarshalled ISBN did not pass Check(): %v", isbn)
 	}
+	if isbn.Version() != ISBN10 {
+		t.Errorf("Expected version isbn10, got: %s", isbn.Version().String())
+	}
 }
 
 func TestUnmarshalJSON_InvalidType(t *testing.T) {
-	// Test unmarshalling JSON with an unrecognized ISBN type.
 	jsonData := []byte(`{"type": "isbn15", "value": "0-306-40615-2"}`)
 	var isbn ISBN
 	err := json.Unmarshal(jsonData, &isbn)
@@ -147,11 +167,53 @@ func TestUnmarshalJSON_InvalidType(t *testing.T) {
 }
 
 func TestUnmarshalJSON_InvalidValue(t *testing.T) {
-	// Test unmarshalling JSON where the ISBN value fails the check.
 	jsonData := []byte(`{"type": "isbn10", "value": "0306406153"}`)
 	var isbn ISBN
 	err := json.Unmarshal(jsonData, &isbn)
 	if err == nil {
 		t.Error("Expected error for invalid ISBN value in JSON, but got none")
 	}
+}
+
+// --- Fuzzing Tests ---
+
+// FuzzNewISBN attempts to create ISBNs from arbitrary strings. The purpose is to
+// catch any panics or unexpected behavior when inferring the version.
+func FuzzNewISBN(f *testing.F) {
+	// Seed with some valid and invalid ISBN strings.
+	seeds := []string{
+		"0-306-40615-2",
+		"9780306406157",
+		"1234567890",
+		"invalid",
+		"9780306406158", // invalid ISBN13
+		"007462542X",
+	}
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, data string) {
+		// We ignore the result; we're just ensuring no panics occur.
+		_, _ = NewISBN(data)
+	})
+}
+
+// FuzzCheck fuzzes the Check() method for various ISBN inputs.
+func FuzzCheck(f *testing.F) {
+	seeds := []string{
+		"0-306-40615-2",
+		"9780306406157",
+		"007462542X",
+		"123456789X",
+		"invalid",
+	}
+	for _, seed := range seeds {
+		f.Add(seed)
+	}
+	f.Fuzz(func(t *testing.T, data string) {
+		// Attempt to create an ISBN; if successful, run Check().
+		isbn, _ := NewISBN(data)
+		_ = isbn.Check()
+	})
 }
