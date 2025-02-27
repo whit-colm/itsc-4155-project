@@ -1,63 +1,21 @@
-package model
+package model_test
 
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
-	"cloud.google.com/go/civil"
-	"github.com/google/uuid"
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
 )
 
-var booksExample []Book
-
-func init() {
-	u, err := uuid.NewV7()
-	if err != nil {
-		panic(-1)
-	}
-	booksExample = append(booksExample, Book{
-		u,
-		[]ISBN{{"0141439602", ISBN10}, {"9780141439600", ISBN13}},
-		"A Tale of Two Cities",
-		"Charles Dickens",
-		civil.Date{Year: 1859, Month: time.November, Day: 26},
-	})
-
-	u, err = uuid.NewV7()
-	if err != nil {
-		panic(-1)
-	}
-	booksExample = append(booksExample, Book{
-		u,
-		[]ISBN{{"0156012197", ISBN10}, {"9780156012195", ISBN13}},
-		"The Little Prince",
-		"Antoine de Saint-Exupéry",
-		civil.Date{Year: 1943, Month: time.April},
-	})
-
-	u, err = uuid.NewV7()
-	if err != nil {
-		panic(-1)
-	}
-	booksExample = append(booksExample, Book{
-		u,
-		[]ISBN{{"0062315005", ISBN10}, {"9780061122415", ISBN13}},
-		"The Alchemist",
-		"Paulo Coelho",
-		civil.Date{Year: 1988},
-	})
-}
-
 func TestJSONMarshal(t *testing.T) {
-	for _, v := range booksExample {
+	for _, v := range testhelper.ExampleBooks {
 		_, err := json.Marshal(v)
 		if err != nil {
 			t.Errorf("unable to marshal individual book %v: %s", v, err)
 		}
 	}
 
-	_, err := json.Marshal(booksExample)
+	_, err := json.Marshal(testhelper.ExampleBooks)
 	if err != nil {
 		t.Errorf("unable to marshal into slice: %s", err)
 	}

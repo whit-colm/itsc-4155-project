@@ -9,64 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 )
 
 var br bookRepository
-
-/// Some dummy data to test books with ///
-
-var exampleBooks []model.Book = []model.Book{
-	{
-		ID: uuid.MustParse("0124e053-3580-7000-8794-db4a97089840"),
-		ISBNs: []model.ISBN{
-			model.MustNewISBN("0141439602", model.ISBN10),
-			model.MustNewISBN("9780141439600", model.ISBN13),
-		},
-		Title:     "A Tale of Two Cities",
-		Author:    "Charles Dickens",
-		Published: civil.Date{Year: 1859, Month: time.November, Day: 26},
-	}, {
-		ID: uuid.MustParse("0124e053-3580-7000-875a-c17e9ba5023c"),
-		ISBNs: []model.ISBN{
-			model.MustNewISBN("0156012197", model.ISBN10),
-			model.MustNewISBN("9780156012195", model.ISBN13),
-		},
-		Title:     "The Little Prince",
-		Author:    "Antoine de Saint-Exupéry",
-		Published: civil.Date{Year: 1943, Month: time.April},
-	}, {
-		ID: uuid.MustParse("0124e053-3580-7000-9127-dd33bb29c893"),
-		ISBNs: []model.ISBN{
-			model.MustNewISBN("0062315005", model.ISBN10),
-			model.MustNewISBN("9780061122415", model.ISBN13),
-		},
-		Title:     "The Alchemist",
-		Author:    "Paulo Coelho",
-		Published: civil.Date{Year: 1988},
-	},
-}
-
-var testBook model.Book = model.Book{
-	ID: uuid.MustParse("0124e053-3580-7000-a59a-fb9e45afdc80"),
-	ISBNs: []model.ISBN{
-		model.MustNewISBN("0062073486", model.ISBN10),
-		model.MustNewISBN("978-0062073488", model.ISBN13),
-	},
-	Title:     "And Then There Were None",
-	Author:    "Agatha Christie",
-	Published: civil.Date{Year: 1939, Month: time.November, Day: 6},
-}
 
 /// DummyPopulator implementations ///
 
 func (b *bookRepository) PopulateDummyValues(ctx context.Context) error {
 	batch := &pgx.Batch{}
 	// TODO: find a way to *not* make this like. O(N*M)??
-	for _, book := range exampleBooks {
+	for _, book := range testhelper.ExampleBooks {
 		batch.Queue(`INSERT INTO books (id, title, author, published)
 					 VALUES ($1, $2, $3, $4)`,
 			book.ID, book.Title, book.Author, book.Published.In(time.UTC))
@@ -99,7 +55,7 @@ func (b *bookRepository) PopulateDummyValues(ctx context.Context) error {
 
 func (b *bookRepository) IsPrepopulated(ctx context.Context) bool {
 	var ids uuid.UUIDs
-	for _, v := range exampleBooks {
+	for _, v := range testhelper.ExampleBooks {
 		ids = append(ids, v.ID)
 	}
 	var count int
@@ -121,8 +77,8 @@ func (b *bookRepository) CleanDummyValues(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	var ids uuid.UUIDs = []uuid.UUID{testBook.ID}
-	for _, v := range exampleBooks {
+	var ids uuid.UUIDs = []uuid.UUID{testhelper.ExampleBook.ID}
+	for _, v := range testhelper.ExampleBooks {
 		ids = append(ids, v.ID)
 	}
 
@@ -191,18 +147,18 @@ func TestPing(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	if err := br.Create(t.Context(), &testBook); err != nil {
-		t.Errorf("could not create book `%v`: %s", testBook, err)
+	if err := br.Create(t.Context(), &testhelper.ExampleBook); err != nil {
+		t.Errorf("could not create book `%v`: %s", testhelper.ExampleBook, err)
 	}
 }
 
 func TestGetByID(t *testing.T) {
-	if b, err := br.GetByID(t.Context(), testBook.ID); err != nil {
+	if b, err := br.GetByID(t.Context(), testhelper.ExampleBook.ID); err != nil {
 		t.Errorf("error finding known UUID: %s", err)
-	} else if b.ID != testBook.ID || /* Yes this is evil, I miss Rust */
-		b.Author != testBook.Author ||
-		b.Title != testBook.Title ||
-		b.Published != testBook.Published ||
+	} else if b.ID != testhelper.ExampleBook.ID || /* Yes this is evil, I miss Rust */
+		b.Author != testhelper.ExampleBook.Author ||
+		b.Title != testhelper.ExampleBook.Title ||
+		b.Published != testhelper.ExampleBook.Published ||
 		// TODO: This is an actually unwell way to do it. O(N^2).
 		func(s1, s2 []model.ISBN) bool {
 			if len(s1) != len(s2) {
@@ -216,8 +172,8 @@ func TestGetByID(t *testing.T) {
 				}
 			}
 			return true
-		}(b.ISBNs, testBook.ISBNs) {
-		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testBook)
+		}(b.ISBNs, testhelper.ExampleBook.ISBNs) {
+		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testhelper.ExampleBook)
 	}
 
 	deadUUID, err := uuid.NewV7()
@@ -232,12 +188,12 @@ func TestGetByID(t *testing.T) {
 }
 
 func TestGetByISBN(t *testing.T) {
-	if _, b, err := br.GetByISBN(t.Context(), testBook.ISBNs[0]); err != nil {
+	if _, b, err := br.GetByISBN(t.Context(), testhelper.ExampleBook.ISBNs[0]); err != nil {
 		t.Errorf("error finding known ISBN: %s", err)
-	} else if b.ID != testBook.ID || /* Yes this is evil, I miss Rust */
-		b.Author != testBook.Author ||
-		b.Title != testBook.Title ||
-		b.Published != testBook.Published ||
+	} else if b.ID != testhelper.ExampleBook.ID || /* Yes this is evil, I miss Rust */
+		b.Author != testhelper.ExampleBook.Author ||
+		b.Title != testhelper.ExampleBook.Title ||
+		b.Published != testhelper.ExampleBook.Published ||
 		// TODO: This is an actually unwell way to do it. O(N^2).
 		func(s1, s2 []model.ISBN) bool {
 			if len(s1) != len(s2) {
@@ -251,8 +207,8 @@ func TestGetByISBN(t *testing.T) {
 				}
 			}
 			return true
-		}(b.ISBNs, testBook.ISBNs) {
-		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testBook)
+		}(b.ISBNs, testhelper.ExampleBook.ISBNs) {
+		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testhelper.ExampleBook)
 	}
 
 	deadISBN := model.MustNewISBN("978-1408855652")
@@ -264,7 +220,7 @@ func TestGetByISBN(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	if err := br.Delete(t.Context(), &testBook); err != nil {
-		t.Errorf("could not delete book `%v`: %s", testBook, err)
+	if err := br.Delete(t.Context(), &testhelper.ExampleBook); err != nil {
+		t.Errorf("could not delete book `%v`: %s", testhelper.ExampleBook, err)
 	}
 }

@@ -1,4 +1,4 @@
-package repository
+package testhelper
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
+	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
 // TestingBookRepository is a useful tool when testing other packages
@@ -21,7 +22,7 @@ type TestingBookRepository struct {
 	isbns sync.Map
 }
 
-var _ BookManager = (*TestingBookRepository)(nil)
+var _ repository.BookManager = (*TestingBookRepository)(nil)
 
 // Create implements repository.BookManager.
 func (t *TestingBookRepository) Create(ctx context.Context, book *model.Book) error {
@@ -40,7 +41,7 @@ func (t *TestingBookRepository) Create(ctx context.Context, book *model.Book) er
 				t.isbns.Delete(v)
 			}
 
-			return fmt.Errorf("ISBN %s already exists.", w)
+			return fmt.Errorf("ISBN %s already exists", w)
 		}
 	}
 	return nil
