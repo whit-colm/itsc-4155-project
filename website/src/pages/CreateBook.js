@@ -11,8 +11,11 @@ function CreateBook() {
   const isbn10Regex = /^(?:\d[\ |-]?){9}[\d|X]$/;
   const isbn13Regex = /^(?:\d[\ |-]?){13}$/;
 
-  const handleAddIsbn = () => {
-    setIsbns([...isbns, { type: 'isbn10', value: '' }]);
+  const handleAddIsbn = (type) => {
+    if (isbns.some(isbn => isbn.type === type)) {
+      return;
+    }
+    setIsbns([...isbns, { type, value: '' }]);
   };
 
   const handleRemoveIsbn = (index) => {
@@ -92,6 +95,7 @@ function CreateBook() {
             <select
               value={isbn.type}
               onChange={(e) => handleIsbnChange(index, 'type', e.target.value)}
+              disabled
             >
               <option value="isbn10">ISBN-10</option>
               <option value="isbn13">ISBN-13</option>
@@ -107,7 +111,12 @@ function CreateBook() {
             {errors[index] && <span className="error">{errors[index]}</span>}
           </div>
         ))}
-        <button type="button" onClick={handleAddIsbn}>Add ISBN</button>
+        {!isbns.some(isbn => isbn.type === 'isbn10') && (
+          <button type="button" onClick={() => handleAddIsbn('isbn10')}>Add ISBN-10</button>
+        )}
+        {!isbns.some(isbn => isbn.type === 'isbn13') && (
+          <button type="button" onClick={() => handleAddIsbn('isbn13')}>Add ISBN-13</button>
+        )}
         <button type="submit">Create Book</button>
       </form>
     </div>
