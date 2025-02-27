@@ -263,7 +263,7 @@ func TestGetByISBN(t *testing.T) {
 	}
 }
 
-func TestSearch(t *testing.T) {
+func TestDelete(t *testing.T) {
 	if err := br.Delete(t.Context(), &testBook); err != nil {
 		t.Errorf("could not delete book `%v`: %s", testBook, err)
 	}
