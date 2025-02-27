@@ -1,0 +1,38 @@
+name: Node
+
+on:
+  push:
+    branches: [ "*" ]
+    paths: [ 'website/**' ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22, 'latest']
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: ${{github.workspace}}/website/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd  ${{github.workspace}}/website
+        npm ci
+
+    - name: Run tests
+      run:
+        |
+        cd  ${{github.workspace}}/website
+        npm test

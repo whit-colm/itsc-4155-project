@@ -1,13 +1,13 @@
 .image-row {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap; /* Allow images to wrap to the next line */
-    gap: 20px; /* Space between images */
+    flex-wrap: wrap;
+    gap: 20px; 
   }
   
   .home-image {
-    width: 100%; /* Make images responsive */
-    max-width: 450px; /* Set a maximum width */
+    width: 100%; 
+    max-width: 450px;
     height: auto;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
