@@ -9,6 +9,7 @@ COPY go.sum ./
 COPY main.go ./ 
 COPY pkg ./pkg 
 COPY cmd ./cmd
+COPY internal ./internal
 
 RUN go build -o jaws main.go
 
