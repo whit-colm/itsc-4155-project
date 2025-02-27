@@ -21,7 +21,11 @@ docker build --target app -t "jaws-app:$jawsTag" .
 docker build --target psql -t "jaws-psql:$jawsTag" .
 
 # Create Docker network
-docker network create --driver bridge jaws-net -ErrorAction SilentlyContinue
+docker network create --driver bridge jaws-net -ErrorActionPreference SilentlyContinue
+
+# Remove existing containers if they are running
+docker rm -f jaws-psql -ErrorActionPreference SilentlyContinue
+docker rm -f jaws-app -ErrorActionPreference SilentlyContinue
 
 # Run containers with automatic cleanup (--rm) and default ports
 docker run --rm --name jaws-psql `

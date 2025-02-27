@@ -9,14 +9,14 @@ test('renders Login heading', () => {
 
 test('logs in on form submit', () => {
   render(<Login />);
-  const usernameInput = screen.getByPlaceholderText(/Username/i);
+  const emailInput = screen.getByPlaceholderText(/Email/i);
   const passwordInput = screen.getByPlaceholderText(/Password/i);
   const submitButton = screen.getByRole('button', { name: /Login/i });
 
-  fireEvent.change(usernameInput, { target: { value: 'user123' } });
+  fireEvent.change(emailInput, { target: { value: 'user123@example.com' } });
   fireEvent.change(passwordInput, { target: { value: 'password' } });
   fireEvent.click(submitButton);
 
-  expect(screen.getByDisplayValue(/user123/i)).toBeInTheDocument();
+  expect(screen.getByDisplayValue(/user123@example.com/i)).toBeInTheDocument();
   expect(screen.getByDisplayValue(/password/i)).toBeInTheDocument();
 });

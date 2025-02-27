@@ -20,7 +20,7 @@ function Login({ setIsLoggedIn }) {
           type="text"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="email"
+          placeholder="Email"
           required
         />
         <input

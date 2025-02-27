@@ -6,6 +6,8 @@ import Search from './pages/Search';
 import CreateAccount from './pages/CreateAccount';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import CreateBook from './pages/CreateBook';
+import BookDetails from './pages/BookDetails';
 import './App.css';
 import Footer from './components/Footer';
 import logo from './logo.png';
@@ -47,6 +49,11 @@ function App() {
                   <Link to="/profile">Profile</Link>
                 </li>
               )}
+              {/* {isLoggedIn && ( */}
+                <li>
+                  <Link to="/create-book">Create Book</Link>
+                </li>
+              {/* )} */}
             </ul>
           </nav>
         </header>
@@ -57,6 +64,8 @@ function App() {
           <Route path="/create-account" element={<CreateAccount />} />
           <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/create-book" element={<CreateBook />} />
+          <Route path="/books/:uuid" element={<BookDetails />} />
         </Routes>
         <Footer />
       </Router>

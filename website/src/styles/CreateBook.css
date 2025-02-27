@@ -1,0 +1,38 @@
+.create-book-container {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.create-book-container h1 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.create-book-container form {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-book-container input {
+  margin-bottom: 10px;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.create-book-container button {
+  padding: 10px;
+  font-size: 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create-book-container button:hover {
+  background-color: #0056b3;
+}

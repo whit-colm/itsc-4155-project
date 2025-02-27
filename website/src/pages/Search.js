@@ -11,7 +11,6 @@ function Search() {
       headers: {
         'Content-Type': 'application/json'
       },
-      //body: JSON.stringify({ search: query })
     });
     const data = await response.json();
     setResults(data);
