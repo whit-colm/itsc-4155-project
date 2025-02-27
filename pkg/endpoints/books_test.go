@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -15,4 +16,5 @@ func TestMain(m *testing.M) {
 		Book:  &testhelper.TestingBookRepository{},
 	}
 	Configure(r, &ds)
+	os.Exit(m.Run())
 }

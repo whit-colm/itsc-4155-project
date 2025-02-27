@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
@@ -164,5 +165,26 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.U
 
 // Search implements BookRepositoryManager.
 func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
-	panic("unimplemented")
+	rows, err := b.db.Query(ctx,
+		`SELECT 
+			b.id, 
+			b.title, 
+			b.author, 
+			b.published,
+			COALESCE(
+				json_agg(json_build_object(
+					'value', i.isbn,
+					'type', i.isbn_type
+				)) FILTER (WHERE i.isbn IS NOT NULL),
+				'[]'::json
+			) AS isbns
+		FROM books b
+		LEFT JOIN isbns i ON b.id = i.book_id
+		WHERE *
+		GROUP BY b.id`)
+
+	if err != nil {
+		return []model.Book{}, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByName[model.Book])
 }
