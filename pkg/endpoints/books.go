@@ -18,6 +18,8 @@ type bookHandle struct {
 func (bh *bookHandle) GetBooks(c *gin.Context) {
 	s, err := bh.repo.Search(c.Request.Context())
 	if err != nil {
+		// TODO: once actually implementing search, change to a
+		// http.StatusBadRequest
 		c.JSON(http.StatusInternalServerError,
 			jsonParsableError{Summary: "failed to retrieve books",
 				Details: err})
@@ -71,7 +73,7 @@ func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
 func (bh *bookHandle) AddBook(c *gin.Context) {
 	jsonData, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,
+		c.JSON(http.StatusBadRequest,
 			jsonParsableError{Summary: "failed to parse request body as JSON",
 				Details: err})
 		return
@@ -79,10 +81,19 @@ func (bh *bookHandle) AddBook(c *gin.Context) {
 	var b models.Book
 
 	if err = json.Unmarshal(jsonData, &b); err != nil {
-		c.JSON(http.StatusInternalServerError,
+		c.JSON(http.StatusBadRequest,
 			jsonParsableError{Summary: "failed to unmarshal JSON into book object",
 				Details: err})
 		return
+	}
+
+	if id, err := uuid.NewV7(); err != nil {
+		c.JSON(http.StatusInternalServerError,
+			jsonParsableError{Summary: "failed to generate new UUID",
+				Details: err})
+		return
+	} else {
+		b.ID = id
 	}
 
 	if err = bh.repo.Create(c.Request.Context(), &b); err != nil {
@@ -92,5 +103,5 @@ func (bh *bookHandle) AddBook(c *gin.Context) {
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, b)
+	c.IndentedJSON(http.StatusCreated, b)
 }
