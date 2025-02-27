@@ -50,7 +50,7 @@ func (bh *bookHandle) GetBookByID(c *gin.Context) {
 
 // This is a bit hacky, but it's just a redirect to the UUID page.
 func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
-	isbn, err := model.NewISBN(c.Param("ISBN"))
+	isbn, err := model.NewISBN(c.Param("isbn"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			jsonParsableError{Summary: "Unable to parse ISBN",
