@@ -1,4 +1,4 @@
-package models
+package model
 
 import (
 	"cloud.google.com/go/civil"

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/whit-colm/itsc-4155-project/pkg/models"
+	"github.com/whit-colm/itsc-4155-project/pkg/model"
 )
 
 // The repository is the unifying "thing" that details all the
@@ -25,9 +25,9 @@ type StoreManager interface {
 }
 
 type BookManager interface {
-	Create(ctx context.Context, book *models.Book) error
-	Delete(ctx context.Context, book *models.Book) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Book, error)
-	Search(ctx context.Context) ([]models.Book, error)
-	GetByISBN(ctx context.Context, isbn models.ISBN) (uuid.UUID, *models.Book, error)
+	Create(ctx context.Context, book *model.Book) error
+	Delete(ctx context.Context, book *model.Book) error
+	GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error)
+	Search(ctx context.Context) ([]model.Book, error)
+	GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.UUID, *model.Book, error)
 }

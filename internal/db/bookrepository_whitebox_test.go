@@ -12,37 +12,37 @@ import (
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/whit-colm/itsc-4155-project/pkg/models"
+	"github.com/whit-colm/itsc-4155-project/pkg/model"
 )
 
 var br bookRepository
 
 /// Some dummy data to test books with ///
 
-var exampleBooks []models.Book = []models.Book{
+var exampleBooks []model.Book = []model.Book{
 	{
 		ID: uuid.MustParse("0124e053-3580-7000-8794-db4a97089840"),
-		ISBNs: []models.ISBN{
-			models.MustNewISBN("0141439602", models.ISBN10),
-			models.MustNewISBN("9780141439600", models.ISBN13),
+		ISBNs: []model.ISBN{
+			model.MustNewISBN("0141439602", model.ISBN10),
+			model.MustNewISBN("9780141439600", model.ISBN13),
 		},
 		Title:     "A Tale of Two Cities",
 		Author:    "Charles Dickens",
 		Published: civil.Date{Year: 1859, Month: time.November, Day: 26},
 	}, {
 		ID: uuid.MustParse("0124e053-3580-7000-875a-c17e9ba5023c"),
-		ISBNs: []models.ISBN{
-			models.MustNewISBN("0156012197", models.ISBN10),
-			models.MustNewISBN("9780156012195", models.ISBN13),
+		ISBNs: []model.ISBN{
+			model.MustNewISBN("0156012197", model.ISBN10),
+			model.MustNewISBN("9780156012195", model.ISBN13),
 		},
 		Title:     "The Little Prince",
 		Author:    "Antoine de Saint-Exupéry",
 		Published: civil.Date{Year: 1943, Month: time.April},
 	}, {
 		ID: uuid.MustParse("0124e053-3580-7000-9127-dd33bb29c893"),
-		ISBNs: []models.ISBN{
-			models.MustNewISBN("0062315005", models.ISBN10),
-			models.MustNewISBN("9780061122415", models.ISBN13),
+		ISBNs: []model.ISBN{
+			model.MustNewISBN("0062315005", model.ISBN10),
+			model.MustNewISBN("9780061122415", model.ISBN13),
 		},
 		Title:     "The Alchemist",
 		Author:    "Paulo Coelho",
@@ -50,11 +50,11 @@ var exampleBooks []models.Book = []models.Book{
 	},
 }
 
-var testBook models.Book = models.Book{
+var testBook model.Book = model.Book{
 	ID: uuid.MustParse("0124e053-3580-7000-a59a-fb9e45afdc80"),
-	ISBNs: []models.ISBN{
-		models.MustNewISBN("0062073486", models.ISBN10),
-		models.MustNewISBN("978-0062073488", models.ISBN13),
+	ISBNs: []model.ISBN{
+		model.MustNewISBN("0062073486", model.ISBN10),
+		model.MustNewISBN("978-0062073488", model.ISBN13),
 	},
 	Title:     "And Then There Were None",
 	Author:    "Agatha Christie",
@@ -204,7 +204,7 @@ func TestGetByID(t *testing.T) {
 		b.Title != testBook.Title ||
 		b.Published != testBook.Published ||
 		// TODO: This is an actually unwell way to do it. O(N^2).
-		func(s1, s2 []models.ISBN) bool {
+		func(s1, s2 []model.ISBN) bool {
 			if len(s1) != len(s2) {
 				return false
 			}
@@ -239,7 +239,7 @@ func TestGetByISBN(t *testing.T) {
 		b.Title != testBook.Title ||
 		b.Published != testBook.Published ||
 		// TODO: This is an actually unwell way to do it. O(N^2).
-		func(s1, s2 []models.ISBN) bool {
+		func(s1, s2 []model.ISBN) bool {
 			if len(s1) != len(s2) {
 				return false
 			}
@@ -255,7 +255,7 @@ func TestGetByISBN(t *testing.T) {
 		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testBook)
 	}
 
-	deadISBN := models.MustNewISBN("978-1408855652")
+	deadISBN := model.MustNewISBN("978-1408855652")
 	if i, _, err := br.GetByISBN(t.Context(), deadISBN); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		t.Errorf("unexpected error searching dead ISBN: %s", err)
 	} else if i != uuid.Nil {

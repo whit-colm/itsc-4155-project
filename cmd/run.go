@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/whit-colm/itsc-4155-project/pkg/db"
+	"github.com/whit-colm/itsc-4155-project/internal/db"
 	"github.com/whit-colm/itsc-4155-project/pkg/endpoints"
 )
 

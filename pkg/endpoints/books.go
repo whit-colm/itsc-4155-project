@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/whit-colm/itsc-4155-project/pkg/models"
+	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
@@ -50,7 +50,7 @@ func (bh *bookHandle) GetBookByID(c *gin.Context) {
 
 // This is a bit hacky, but it's just a redirect to the UUID page.
 func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
-	isbn, err := models.NewISBN(c.Param("ISBN"))
+	isbn, err := model.NewISBN(c.Param("ISBN"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
 			jsonParsableError{Summary: "Unable to parse ISBN",
@@ -78,7 +78,7 @@ func (bh *bookHandle) AddBook(c *gin.Context) {
 				Details: err})
 		return
 	}
-	var b models.Book
+	var b model.Book
 
 	if err = json.Unmarshal(jsonData, &b); err != nil {
 		c.JSON(http.StatusBadRequest,

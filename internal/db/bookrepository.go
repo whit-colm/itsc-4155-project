@@ -9,7 +9,7 @@ import (
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/whit-colm/itsc-4155-project/pkg/models"
+	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
@@ -22,7 +22,7 @@ func newBookRepository(psql *postgres) repository.BookManager {
 }
 
 // Create implements BookRepositoryManager.
-func (b *bookRepository) Create(ctx context.Context, book *models.Book) error {
+func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -53,7 +53,7 @@ func (b *bookRepository) Create(ctx context.Context, book *models.Book) error {
 	return tx.Commit(ctx)
 }
 
-func (b *bookRepository) Delete(ctx context.Context, book *models.Book) error {
+func (b *bookRepository) Delete(ctx context.Context, book *model.Book) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -80,8 +80,8 @@ func (b *bookRepository) Delete(ctx context.Context, book *models.Book) error {
 }
 
 // GetByID implements BookRepositoryManager.
-func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Book, error) {
-	var book models.Book
+func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
+	var book model.Book
 	var published time.Time
 	var isbns []byte
 
@@ -120,8 +120,8 @@ func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Boo
 }
 
 // GetByISBN implements BookRepositoryManager.
-func (b *bookRepository) GetByISBN(ctx context.Context, isbn models.ISBN) (uuid.UUID, *models.Book, error) {
-	var book models.Book
+func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.UUID, *model.Book, error) {
+	var book model.Book
 	var published time.Time
 	var isbns []byte
 
@@ -163,6 +163,6 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn models.ISBN) (uuid.
 }
 
 // Search implements BookRepositoryManager.
-func (b *bookRepository) Search(ctx context.Context) ([]models.Book, error) {
+func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
 	panic("unimplemented")
 }
