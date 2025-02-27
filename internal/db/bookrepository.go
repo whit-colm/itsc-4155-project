@@ -8,7 +8,6 @@ import (
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
@@ -165,6 +164,15 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.U
 
 // Search implements BookRepositoryManager.
 func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
+	type aux struct {
+		ID        uuid.UUID
+		Title     string
+		Author    string
+		Published time.Time
+		ISBNs     []byte
+	}
+	var auxs []aux
+
 	rows, err := b.db.Query(ctx,
 		`SELECT 
 			b.id, 
@@ -180,11 +188,36 @@ func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
 			) AS isbns
 		FROM books b
 		LEFT JOIN isbns i ON b.id = i.book_id
-		WHERE *
 		GROUP BY b.id`)
 
 	if err != nil {
 		return []model.Book{}, err
 	}
-	return pgx.CollectRows(rows, pgx.RowToStructByName[model.Book])
+
+	for rows.Next() {
+		var b aux
+		rows.Scan(&b.ID, &b.Title, &b.Author, &b.Published, &b.ISBNs)
+		auxs = append(auxs, b)
+	}
+	if rows.Err() != nil {
+		return []model.Book{}, err
+	}
+
+	var books []model.Book
+
+	for _, v := range auxs {
+		var isbns []model.ISBN
+		if err := json.Unmarshal(v.ISBNs, &isbns); err != nil {
+			return []model.Book{}, err
+		}
+		books = append(books, model.Book{
+			ID:        v.ID,
+			ISBNs:     isbns,
+			Title:     v.Title,
+			Author:    v.Author,
+			Published: civil.DateOf(v.Published),
+		})
+	}
+
+	return books, nil
 }

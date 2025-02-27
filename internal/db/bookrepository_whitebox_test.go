@@ -124,6 +124,7 @@ func TestMain(m *testing.M) {
 		p = true
 		defer br.CleanDummyValues(ctx)
 	} else {
+		br.CleanDummyValues(context.Background())
 		fmt.Fprintf(os.Stderr, "Database is already populated\n")
 		os.Exit(1)
 	}
@@ -186,7 +187,13 @@ func TestGetByISBN(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
-
+	bs, err := br.Search(t.Context())
+	if err != nil {
+		t.Errorf("unexpected error in search: %s", err)
+	}
+	if !testhelper.IsBookSliceEquals(bs, append(testhelper.ExampleBooks, testhelper.ExampleBook)) {
+		t.Errorf("unexpected inequality with fetched books")
+	}
 }
 
 func TestDelete(t *testing.T) {
