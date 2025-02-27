@@ -2,7 +2,6 @@ package testhelper
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,24 +30,7 @@ func TestCreate(t *testing.T) {
 func TestGetByID(t *testing.T) {
 	if b, err := br.GetByID(t.Context(), ExampleBook.ID); err != nil {
 		t.Errorf("error finding known UUID: %s", err)
-	} else if b.ID != ExampleBook.ID || /* Yes this is evil, I miss Rust */
-		b.Author != ExampleBook.Author ||
-		b.Title != ExampleBook.Title ||
-		b.Published != ExampleBook.Published ||
-		// TODO: This is an actually unwell way to do it. O(N^2).
-		func(s1, s2 []model.ISBN) bool {
-			if len(s1) != len(s2) {
-				return false
-			}
-			for _, v1 := range s1 {
-				for _, v2 := range s2 {
-					if !reflect.DeepEqual(v1, v2) {
-						return false
-					}
-				}
-			}
-			return true
-		}(b.ISBNs, ExampleBook.ISBNs) {
+	} else if !IsBookEquals(*b, ExampleBook) {
 		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, ExampleBook)
 	}
 
@@ -64,24 +46,7 @@ func TestGetByID(t *testing.T) {
 func TestGetByISBN(t *testing.T) {
 	if _, b, err := br.GetByISBN(t.Context(), ExampleBook.ISBNs[0]); err != nil {
 		t.Errorf("error finding known ISBN: %s", err)
-	} else if b.ID != ExampleBook.ID || /* Yes this is evil, I miss Rust */
-		b.Author != ExampleBook.Author ||
-		b.Title != ExampleBook.Title ||
-		b.Published != ExampleBook.Published ||
-		// TODO: This is an actually unwell way to do it. O(N^2).
-		func(s1, s2 []model.ISBN) bool {
-			if len(s1) != len(s2) {
-				return false
-			}
-			for _, v1 := range s1 {
-				for _, v2 := range s2 {
-					if !reflect.DeepEqual(v1, v2) {
-						return false
-					}
-				}
-			}
-			return true
-		}(b.ISBNs, ExampleBook.ISBNs) {
+	} else if !IsBookEquals(*b, ExampleBook) {
 		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, ExampleBook)
 	}
 
