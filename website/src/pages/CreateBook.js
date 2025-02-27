@@ -5,19 +5,51 @@ function CreateBook() {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [published, setPublished] = useState('');
-  const [isbn10, setIsbn10] = useState('');
-  const [isbn13, setIsbn13] = useState('');
+  const [isbns, setIsbns] = useState([{ type: 'isbn10', value: '' }]);
+  const [errors, setErrors] = useState({});
+
+  const isbn10Regex = /^(?:\d[\ |-]?){9}[\d|X]$/;
+  const isbn13Regex = /^(?:\d[\ |-]?){13}$/;
+
+  const handleAddIsbn = () => {
+    setIsbns([...isbns, { type: 'isbn10', value: '' }]);
+  };
+
+  const handleRemoveIsbn = (index) => {
+    const newIsbns = isbns.filter((_, i) => i !== index);
+    setIsbns(newIsbns);
+  };
+
+  const handleIsbnChange = (index, field, value) => {
+    const newIsbns = isbns.map((isbn, i) => 
+      i === index ? { ...isbn, [field]: value } : isbn
+    );
+    setIsbns(newIsbns);
+  };
+
+  const validateIsbns = () => {
+    const newErrors = {};
+    isbns.forEach((isbn, index) => {
+      if (isbn.type === 'isbn10' && !isbn10Regex.test(isbn.value)) {
+        newErrors[index] = 'Invalid ISBN-10 format';
+      } else if (isbn.type === 'isbn13' && !isbn13Regex.test(isbn.value)) {
+        newErrors[index] = 'Invalid ISBN-13 format';
+      }
+    });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateIsbns()) {
+      return;
+    }
     const newBook = {
       title,
       author,
       published,
-      isbns: [
-        { type: 'isbn10', value: isbn10 },
-        { type: 'isbn13', value: isbn13 }
-      ]
+      isbns
     };
     const response = await fetch('/api/books/new', {
       method: 'POST',
@@ -55,20 +87,27 @@ function CreateBook() {
           placeholder="Published Date"
           required
         />
-        <input
-          type="text"
-          value={isbn10}
-          onChange={(e) => setIsbn10(e.target.value)}
-          placeholder="ISBN-10"
-          required
-        />
-        <input
-          type="text"
-          value={isbn13}
-          onChange={(e) => setIsbn13(e.target.value)}
-          placeholder="ISBN-13"
-          required
-        />
+        {isbns.map((isbn, index) => (
+          <div key={index} className="isbn-input">
+            <select
+              value={isbn.type}
+              onChange={(e) => handleIsbnChange(index, 'type', e.target.value)}
+            >
+              <option value="isbn10">ISBN-10</option>
+              <option value="isbn13">ISBN-13</option>
+            </select>
+            <input
+              type="text"
+              value={isbn.value}
+              onChange={(e) => handleIsbnChange(index, 'value', e.target.value)}
+              placeholder="ISBN"
+              required
+            />
+            <button type="button" onClick={() => handleRemoveIsbn(index)}>X</button>
+            {errors[index] && <span className="error">{errors[index]}</span>}
+          </div>
+        ))}
+        <button type="button" onClick={handleAddIsbn}>Add ISBN</button>
         <button type="submit">Create Book</button>
       </form>
     </div>
