@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,18 +27,23 @@ var connOnce sync.Once
 // all other methods.
 //
 // Make sure to defer *Disconnect()* after connecting.
-func New(uri string) (*postgres, error) {
-	s := &postgres{}
+func (p *postgres) Connect(args any) error {
+	uri, ok := args.(string)
+	if !ok {
+		return fmt.Errorf("failure casting args to URI: %#v", args)
+	}
+
 	var err error
 	connOnce.Do(func() {
-		s.db, err = pgxpool.New(context.Background(), uri)
+		p.db, err = pgxpool.New(context.Background(), uri)
 	})
 
-	return s, err
+	return err
 }
 
 func NewRepository(uri string) (r repository.Repository, err error) {
-	db, err := New(uri)
+	db := &postgres{}
+	err = db.Connect(uri)
 	r.Store = db
 	r.Book = newBookRepository(db)
 	return

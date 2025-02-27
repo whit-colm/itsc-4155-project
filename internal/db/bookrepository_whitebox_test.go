@@ -106,8 +106,9 @@ func TestMain(m *testing.M) {
 		fmt.Printf("skipping tests; empty `DB_URI` variable.\n")
 		os.Exit(0)
 	}
+	c := &postgres{}
 
-	c, err := New(uriString)
+	err := c.Connect(uriString)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to connect to PostgreSQL: %v\n", err)
 		os.Exit(1)
