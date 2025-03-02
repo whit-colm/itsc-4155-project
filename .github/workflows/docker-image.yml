@@ -2,17 +2,31 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
+    paths: [ 'Dockerfile', 'docker-compose.yaml' ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
 
 jobs:
 
-  build:
-
+  build-linux:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag jaws:$(date +%Y%m%d%H%M%S)
+    - name: Build the App image
+      run: docker build . --file Dockerfile --target app --tag jaws-app:latest
+    - name: Build the Postgres image
+      run: docker build . --file Dockerfile --target app --tag jaws-psql:latest
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Verify docker installation
+      run: |
+          docker --version
+          docker-compose --version
+    - name: Build the Docker images
+      run: docker-compose build
