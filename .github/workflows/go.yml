@@ -6,11 +6,12 @@ name: Go
 on:
   push:
     branches: [ "*" ]
-    paths: [ 'cmd/**', 'pkg/**', 'internal/**', 'main.go' ]
+    paths: [ 'cmd/**', 'pkg/**', 'internal/**' ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
     steps:
