@@ -1,0 +1,39 @@
+name: jaws
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: psql
+    container_name: &dbhost "jaws-psql"
+    ports:
+      - "54321:5432"
+    environment:
+      POSTGRES_DB: &pgdb "jaws"
+      POSTGRES_USER: &pgusr "jaws"
+      POSTGRES_PASSWORD: &pgpswd "CqKq5RyEPpRkra8SY9glEnxrnsABD-CBNK_69H_VYveM7ZL8Kg_qIDHChASdbYRW"
+    networks:
+      - &network "jaws-net"
+    volumes:
+      - ./build/migrations:/docker-entrypoint-initdb.d
+  app:
+    container_name: jaws-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: app
+    depends_on:
+      - "db"
+    ports:
+      - "8080:80"
+    networks:
+      - *network
+    environment:
+      PG_HOST: *dbhost
+      PG_USER: *pgusr
+      PG_PORT: "5432"
+      PG_DB: *pgdb
+      PG_PASSWORD: *pgpswd
+
+networks:
+  *network :
