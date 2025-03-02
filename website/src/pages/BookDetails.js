@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import '../styles/BookDetails.css';
 
-function BookDetails() {
-  const { uuid } = useParams();
+function BookDetails({ uuid }) {
   const [book, setBook] = useState(null);
 
   useEffect(() => {
