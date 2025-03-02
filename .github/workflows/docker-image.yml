@@ -3,7 +3,7 @@ name: Docker Image CI
 on:
   push:
     branches: [ "main", "develop" ]
-    paths: [ 'Dockerfile', 'docker-compose.yaml' ]
+    paths: [ 'Dockerfile', 'docker-compose.yaml', '.github/workflows/docker-image.yml' ]
   pull_request:
     branches: [ "main", "develop" ]
 
@@ -27,6 +27,5 @@ jobs:
     - name: Verify docker installation
       run: |
           docker --version
-          docker-compose --version
     - name: Build the Docker images
-      run: docker-compose build
+      run: docker compose build
