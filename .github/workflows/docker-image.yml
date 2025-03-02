@@ -24,6 +24,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: Vampire/setup-wsl@v5
     - name: Verify docker installation
       run: |
           docker --version
