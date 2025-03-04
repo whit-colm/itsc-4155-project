@@ -2,7 +2,7 @@
 CREATE TABLE books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
     title TEXT NOT NULL,
-    author TEXT NOT NULL,
+    author_id UUID NOT NULL REFERENCES authors(id) ON DELETE RESTRICT,
     published DATE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -17,8 +17,3 @@ CREATE TABLE isbns (
         to_tsvector('english', isbn)
     ) STORED
 );
-
--- Add indexes
-CREATE INDEX idx_books_title ON books USING gin(to_tsvector('english', title));
-CREATE INDEX idx_books_author ON books (author);
-CREATE UNIQUE INDEX idx_isbns_unique_book ON isbns(book_id, isbn_type);
