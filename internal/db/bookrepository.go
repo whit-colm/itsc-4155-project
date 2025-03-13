@@ -32,7 +32,7 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	_, err = tx.Exec(ctx,
 		`INSERT INTO books (id, title, author, published)
 		 VALUES ($1, $2, $3, $4)`,
-		book.ID, book.Title, book.Author, book.Published.In(time.UTC),
+		book.ID, book.Title, book.AuthorID, book.Published.In(time.UTC),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert book: %w", err)
@@ -104,7 +104,7 @@ func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Book
 		GROUP BY b.id`,
 		id,
 	).Scan(
-		&book.ID, &book.Title, &book.Author,
+		&book.ID, &book.Title, &book.AuthorID,
 		&published, &isbns,
 	); err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.U
 		GROUP BY b.id`,
 		isbn,
 	).Scan(
-		&book.ID, &book.Title, &book.Author,
+		&book.ID, &book.Title, &book.AuthorID,
 		&published, &isbns,
 	); err != nil {
 		return uuid.Nil, nil, err
@@ -167,7 +167,7 @@ func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
 	type aux struct {
 		ID        uuid.UUID
 		Title     string
-		Author    string
+		Author    uuid.UUID
 		Published time.Time
 		ISBNs     []byte
 	}
@@ -214,7 +214,7 @@ func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
 			ID:        v.ID,
 			ISBNs:     isbns,
 			Title:     v.Title,
-			Author:    v.Author,
+			AuthorID:  v.Author,
 			Published: civil.DateOf(v.Published),
 		})
 	}

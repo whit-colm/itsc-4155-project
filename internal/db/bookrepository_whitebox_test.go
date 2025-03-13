@@ -24,7 +24,7 @@ func (b *bookRepository) PopulateDummyValues(ctx context.Context) error {
 	for _, book := range testhelper.ExampleBooks {
 		batch.Queue(`INSERT INTO books (id, title, author, published)
 					 VALUES ($1, $2, $3, $4)`,
-			book.ID, book.Title, book.Author, book.Published.In(time.UTC))
+			book.ID, book.Title, book.AuthorID, book.Published.In(time.UTC))
 		// isbn used instead of i because `i` generally means index
 		for _, isbn := range book.ISBNs {
 			batch.Queue(`INSERT INTO isbns (isbn, book_id, isbn_type)
