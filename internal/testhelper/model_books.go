@@ -15,9 +15,10 @@ var ExampleBooks []model.Book = []model.Book{
 		ISBNs: []model.ISBN{
 			model.MustNewISBN("0141439602", model.ISBN10),
 			model.MustNewISBN("9780141439600", model.ISBN13),
+			model.MustNewISBN("9780451530578", model.ISBN13),
 		},
 		Title:     "A Tale of Two Cities",
-		Author:    "Charles Dickens",
+		AuthorID:  uuid.MustParse("01959161-cdfc-7142-8bab-a7008477f417"),
 		Published: civil.Date{Year: 1859, Month: time.November, Day: 26},
 	}, {
 		ID: uuid.MustParse("0124e053-3580-7000-875a-c17e9ba5023c"),
@@ -26,7 +27,7 @@ var ExampleBooks []model.Book = []model.Book{
 			model.MustNewISBN("9780156012195", model.ISBN13),
 		},
 		Title:     "The Little Prince",
-		Author:    "Antoine de Saint-Exupéry",
+		AuthorID:  uuid.MustParse("01959161-cdfc-7c45-91e3-9c785be04942"),
 		Published: civil.Date{Year: 1943, Month: time.April},
 	}, {
 		ID: uuid.MustParse("0124e053-3580-7000-9127-dd33bb29c893"),
@@ -35,7 +36,7 @@ var ExampleBooks []model.Book = []model.Book{
 			model.MustNewISBN("9780061122415", model.ISBN13),
 		},
 		Title:     "The Alchemist",
-		Author:    "Paulo Coelho",
+		AuthorID:  uuid.MustParse("01959161-cdfc-77a4-930d-0732bbf87ea6"),
 		Published: civil.Date{Year: 1988},
 	},
 }
@@ -47,7 +48,7 @@ var ExampleBook model.Book = model.Book{
 		model.MustNewISBN("978-0062073488", model.ISBN13),
 	},
 	Title:     "And Then There Were None",
-	Author:    "Agatha Christie",
+	AuthorID:  uuid.MustParse("0124e053-3580-7000-a59a-fb9e45afdc80"),
 	Published: civil.Date{Year: 1939, Month: time.November, Day: 6},
 }
 
@@ -57,7 +58,7 @@ var ExampleBook model.Book = model.Book{
 // function and not a model method.
 func IsBookEquals(b1, b2 model.Book) bool {
 	if b1.ID != b2.ID ||
-		b1.Author != b2.Author ||
+		b1.AuthorID != b2.AuthorID ||
 		b1.Title != b2.Title ||
 		b1.Published != b2.Published {
 		return false
