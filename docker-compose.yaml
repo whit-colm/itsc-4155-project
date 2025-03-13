@@ -1,10 +1,7 @@
 name: jaws
 services:
   db:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: psql
+    image: postgres:17-alpine
     container_name: &dbhost "jaws-psql"
     ports:
       - "54321:5432"

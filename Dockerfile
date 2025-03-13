@@ -62,7 +62,3 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
     CMD curl -f http://127.0.0.1:9000/api/health
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.
-
-FROM postgres:17-alpine AS psql
-
-COPY build/migrations/ /docker-entrypoint-initdb.d/
