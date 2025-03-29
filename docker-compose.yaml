@@ -14,11 +14,13 @@ services:
     volumes:
       - ./build/migrations:/docker-entrypoint-initdb.d
   app:
+    image: jaws-app:latest
     container_name: jaws-app
     build:
       context: .
       dockerfile: Dockerfile
       target: app
+      network: host
     depends_on:
       - "db"
     ports:
@@ -31,6 +33,9 @@ services:
       PG_PORT: "5432"
       PG_DB: *pgdb
       PG_PASSWORD: *pgpswd
+      GH_CLIENTID: "Ov23liMObUNDsmTgQa5d"
+      GH_CLIENTSECRET: "4ee9f6ce994ef9d203b050b5f83e3ee14b81873d"
 
 networks:
   *network :
+    name: *network

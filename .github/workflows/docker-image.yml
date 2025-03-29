@@ -17,5 +17,5 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build the App image
       run: docker build . --file Dockerfile --target app --tag jaws:latest
-    - name: Build the App image
-      run: docker build . --file Dockerfile --target psql --tag jaws:latest
+    - name: Validate docker-compose.yaml
+      run: docker compose config

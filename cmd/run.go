@@ -8,6 +8,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/oauth2"
+	oauth2Endpoints "golang.org/x/oauth2/endpoints"
+
 	"github.com/whit-colm/itsc-4155-project/internal/db"
 	"github.com/whit-colm/itsc-4155-project/pkg/endpoints"
 )
@@ -24,6 +27,9 @@ type flagVars struct {
 	PsqlPassword string
 	PsqlHost     string
 	PsqlPort     string
+
+	OAuth2GithubClientID     string
+	OAuth2GithubClientSecret string
 }
 
 var runtimeConfig flagVars
@@ -40,6 +46,9 @@ func Run(args []string) int {
 	flag.StringVar(&runtimeConfig.PsqlDatabase, "dbpasswd", "", "Password for the PostgreSQL user")
 	flag.StringVar(&runtimeConfig.PsqlHost, "dbhost", "127.0.0.1", "Hostname or IP for the PostgeSQL instance")
 	flag.StringVar(&runtimeConfig.PsqlPort, "dbport", "5432", "Port for the PostgreSQL instance")
+
+	flag.StringVar(&runtimeConfig.OAuth2GithubClientID, "oa2ghclientid", "", "GitHub Application Client ID")
+	flag.StringVar(&runtimeConfig.OAuth2GithubClientSecret, "oa2ghclientsecret", "", "GitHub Application Client Secret")
 
 	flag.Parse()
 
@@ -63,6 +72,9 @@ func Run(args []string) int {
 		runtimeConfig.PsqlDatabase = os.Getenv("PG_DATABASE")
 		runtimeConfig.PsqlPassword = os.Getenv("PG_PASSWORD")
 		runtimeConfig.PsqlUser = os.Getenv("PG_USER")
+
+		runtimeConfig.OAuth2GithubClientID = os.Getenv("GH_CLIENTID")
+		runtimeConfig.OAuth2GithubClientSecret = os.Getenv("GH_CLIENTSECRET")
 	}
 
 	// Set Gin running mode based on value of the debug mode
@@ -73,9 +85,10 @@ func Run(args []string) int {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Instantiate a new stored... something
-	// Although in our case it should only ever be a db.postgres instance
-	c, err := db.NewRepository(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
+	// Instantiate our concrete storage class (PostgreSQL)
+	// Although as far as the rest of the program is concerned, it's a
+	// bunch of repositories
+	ds, err := db.NewRepository(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
 		runtimeConfig.PsqlUser,
 		runtimeConfig.PsqlPassword,
 		runtimeConfig.PsqlHost,
@@ -85,15 +98,24 @@ func Run(args []string) int {
 		fmt.Printf("error connecting to datastore: %s\n", err)
 		return 8
 	}
-	defer c.Store.Disconnect()
+	defer ds.Store.Disconnect()
 
-	c.Store.Ping(context.Background())
+	ds.Store.Ping(context.Background())
+
+	// Set up what we can of the OAuth2 config
+	// the rest gets defined later, this is just how we pass secrets
+	ghoa2 := oauth2.Config{
+		ClientID:     runtimeConfig.OAuth2GithubClientID,
+		ClientSecret: runtimeConfig.OAuth2GithubClientSecret,
+		Scopes:       []string{"read:user", "user:email", "read:gpg_key"},
+		Endpoint:     oauth2Endpoints.GitHub,
+	}
 
 	// Define the Gin router
 	router := gin.Default()
 
 	// Set up endpoints
-	endpoints.Configure(router, &c)
+	endpoints.Configure(router, &ds, &ghoa2)
 
 	// Start the router
 	err = router.Run(fmt.Sprintf("%v:%v", runtimeConfig.GinHost, runtimeConfig.GinPort))

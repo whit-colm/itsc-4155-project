@@ -42,14 +42,26 @@ var ExampleBooks []model.Book = []model.Book{
 }
 
 var ExampleBook model.Book = model.Book{
-	ID: uuid.MustParse("0124e053-3580-7000-a59a-fb9e45afdc80"),
+	ID: uuid.MustParse("019595bd-8d5c-75c6-b81b-07a9a7f81702"),
+	ISBNs: []model.ISBN{
+		model.MustNewISBN("0141439742", model.ISBN10),
+		model.MustNewISBN("978-0141439747", model.ISBN13),
+	},
+	Title:     "Oliver Twist",
+	AuthorID:  uuid.MustParse("01959161-cdfc-7142-8bab-a7008477f417"),
+	Published: civil.Date{Year: 1837, Month: time.February},
+}
+
+// Known dead book, will not link to any author.
+var DeadBook model.Book = model.Book{
+	ID: uuid.MustParse("019595bf-e65d-7ca6-a9e2-440911907a01"),
 	ISBNs: []model.ISBN{
 		model.MustNewISBN("0062073486", model.ISBN10),
 		model.MustNewISBN("978-0062073488", model.ISBN13),
 	},
-	Title:     "And Then There Were None",
-	AuthorID:  uuid.MustParse("0124e053-3580-7000-a59a-fb9e45afdc80"),
-	Published: civil.Date{Year: 1939, Month: time.November, Day: 6},
+	Title:     "Dream of the Red Chamber",
+	AuthorID:  uuid.MustParse("00000000-0000-8000-0000-100000000000"),
+	Published: civil.Date{Year: 1791},
 }
 
 // Bad way to test equivalence of two books

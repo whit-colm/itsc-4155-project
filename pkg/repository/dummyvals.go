@@ -5,6 +5,9 @@ import "context"
 // DummyPopulator prepares any type (though it should be a repository)
 // to populate its data storage instance with demonstration values for
 // testing purposes.
+//
+// Implement this with the idea in mind that it should be on a
+// dedicated testing datastore (i.e. NOT PRODUCTION)
 type DummyPopulator interface {
 	// Populate a concrete data store with dummy values for testing
 	//
@@ -25,4 +28,10 @@ type DummyPopulator interface {
 	// only useful if you don't have a testing datastore for whatever
 	// reason.
 	CleanDummyValues(ctx context.Context) error
+
+	// Set the underlying datastore
+	//
+	// This should be used to set the underlying datastore for multiple
+	// repositories.
+	SetDatastore(ctx context.Context, ds any) error
 }

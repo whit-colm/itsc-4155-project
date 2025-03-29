@@ -10,19 +10,20 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
+	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-var br bookRepository
-
-/// DummyPopulator implementations ///
+// Useful to check that a type implements an interface
+var _ repository.DummyPopulator = (*bookRepository)(nil)
 
 func (b *bookRepository) PopulateDummyValues(ctx context.Context) error {
 	batch := &pgx.Batch{}
 	// TODO: find a way to *not* make this like. O(N*M)??
 	for _, book := range testhelper.ExampleBooks {
-		batch.Queue(`INSERT INTO books (id, title, author, published)
+		batch.Queue(`INSERT INTO books (id, title, author_id, published)
 					 VALUES ($1, $2, $3, $4)`,
 			book.ID, book.Title, book.AuthorID, book.Published.In(time.UTC))
 		// isbn used instead of i because `i` generally means index
@@ -64,6 +65,7 @@ func (b *bookRepository) IsPrepopulated(ctx context.Context) bool {
 		 FROM books b
 		 WHERE b.id = any($1)`,
 		ids).Scan(&count); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return false
 	}
 	return count == len(ids)
@@ -76,91 +78,43 @@ func (b *bookRepository) CleanDummyValues(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
-	var ids uuid.UUIDs = []uuid.UUID{testhelper.ExampleBook.ID}
-	for _, v := range testhelper.ExampleBooks {
-		ids = append(ids, v.ID)
+	if _, err = b.db.Exec(ctx, `TRUNCATE books CASCADE`); err != nil {
+		return fmt.Errorf("could not truncate: %w", err)
 	}
-
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM books b
-		 WHERE b.id = any($1)`,
-		ids); err != nil {
-		return fmt.Errorf("failed to delete books: %w", err)
-	}
-
 	return tx.Commit(ctx)
 }
 
-// I was going to do this with flags, but tests and flags are real
-// gnarly together, so we instead pass an env var. Yes I know this has
-// Issues:tm: with Windows
-func TestMain(m *testing.M) {
-	// Not all devices are equipped to test the DB code, and that's ok
-	// (well not really, but we're too poor and strapped for time to do
-	// anything). So we check a db uri from ENV vars, if one exists we
-	// use it and fail tests; otherwise we "pass" and skip the whole
-	// sordid affair.
-	uriString := os.Getenv("DB_URI")
-	if uriString == "" {
-		fmt.Printf("skipping tests; empty `DB_URI` variable.\n")
-		os.Exit(0)
-	}
-	c := &postgres{}
-
-	err := c.Connect(uriString)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to connect to PostgreSQL: %v\n", err)
-		os.Exit(1)
-	}
-	defer c.Disconnect()
-	br.db = c.db
-
-	p := false
-	if ctx := context.Background(); !br.IsPrepopulated(ctx) {
-		if err := br.PopulateDummyValues(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to instantiate dummy values: %v\n", err)
-			os.Exit(1)
-		}
-		p = true
-		defer br.CleanDummyValues(ctx)
+func (a *bookRepository) SetDatastore(ctx context.Context, ds any) error {
+	if db, ok := ds.(*pgxpool.Pool); !ok {
+		return fmt.Errorf("unable to cast ds into pgxpool Pool.")
 	} else {
-		br.CleanDummyValues(context.Background())
-		fmt.Fprintf(os.Stderr, "Database is already populated\n")
-		os.Exit(1)
-	}
-	code := m.Run()
-
-	// This was going to be a defer but it doesn't work for some reason.
-	if p {
-		if err := br.CleanDummyValues(context.Background()); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to clean dummy values: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	os.Exit(code)
-}
-
-func TestPing(t *testing.T) {
-	if err := br.db.Ping(context.Background()); err != nil {
-		t.Errorf("database failed ping: %s", err)
+		a.db = db
+		return nil
 	}
 }
 
-func TestCreate(t *testing.T) {
+/** Actual tests below **/
+
+func TestBookCreate(t *testing.T) {
 	if err := br.Create(t.Context(), &testhelper.ExampleBook); err != nil {
 		t.Errorf("could not create book `%v`: %s", testhelper.ExampleBook, err)
 	}
 }
 
-func TestGetByID(t *testing.T) {
-	if b, err := br.GetByID(t.Context(), testhelper.ExampleBook.ID); err != nil {
+func TestBookDelete(t *testing.T) {
+	if err := br.Delete(t.Context(), &testhelper.ExampleBook); err != nil {
+		t.Errorf("could not delete book `%v`: %s", testhelper.ExampleBook, err)
+	}
+}
+
+func TestBookGetByID(t *testing.T) {
+	if b, err := br.GetByID(t.Context(), testhelper.ExampleBooks[0].ID); err != nil {
 		t.Errorf("error finding known UUID: %s", err)
-	} else if !testhelper.IsBookEquals(*b, testhelper.ExampleBook) {
+	} else if !testhelper.IsBookEquals(*b, testhelper.ExampleBooks[0]) {
 		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testhelper.ExampleBook)
 	}
 
-	deadUUID, err := uuid.NewV7()
+	deadUUID, err := uuid.Parse("00000000-0000-8000-0000-200000000000")
 	if err != nil {
 		t.Errorf("Error generating dead UUID: %s", err)
 	}
@@ -171,7 +125,7 @@ func TestGetByID(t *testing.T) {
 	}
 }
 
-func TestGetByISBN(t *testing.T) {
+func TestBookGetByISBN(t *testing.T) {
 	if _, b, err := br.GetByISBN(t.Context(), testhelper.ExampleBook.ISBNs[0]); err != nil {
 		t.Errorf("error finding known ISBN: %s", err)
 	} else if !testhelper.IsBookEquals(*b, testhelper.ExampleBook) {
@@ -186,18 +140,12 @@ func TestGetByISBN(t *testing.T) {
 	}
 }
 
-func TestSearch(t *testing.T) {
+func TestBookSearch(t *testing.T) {
 	bs, err := br.Search(t.Context())
 	if err != nil {
 		t.Errorf("unexpected error in search: %s", err)
 	}
-	if !testhelper.IsBookSliceEquals(bs, append(testhelper.ExampleBooks, testhelper.ExampleBook)) {
+	if !testhelper.IsBookSliceEquals(bs, testhelper.ExampleBooks) {
 		t.Errorf("unexpected inequality with fetched books")
-	}
-}
-
-func TestDelete(t *testing.T) {
-	if err := br.Delete(t.Context(), &testhelper.ExampleBook); err != nil {
-		t.Errorf("could not delete book `%v`: %s", testhelper.ExampleBook, err)
 	}
 }

@@ -17,6 +17,9 @@ type bookRepository struct {
 	db *pgxpool.Pool
 }
 
+// Useful to check that a type implements an interface
+var _ repository.BookManager = (*bookRepository)(nil)
+
 func newBookRepository(psql *postgres) repository.BookManager {
 	return &bookRepository{db: psql.db}
 }
@@ -30,7 +33,7 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO books (id, title, author, published)
+		`INSERT INTO books (id, title, author_id, published)
 		 VALUES ($1, $2, $3, $4)`,
 		book.ID, book.Title, book.AuthorID, book.Published.In(time.UTC),
 	)
@@ -53,6 +56,11 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	return tx.Commit(ctx)
 }
 
+// Update implements repository.BookManager.
+func (b *bookRepository) Update(ctx context.Context, t *model.Book) (*model.Book, error) {
+	panic("unimplemented")
+}
+
 func (b *bookRepository) Delete(ctx context.Context, book *model.Book) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
@@ -60,6 +68,7 @@ func (b *bookRepository) Delete(ctx context.Context, book *model.Book) error {
 	}
 	defer tx.Rollback(ctx)
 
+	// TODO: use Exec over QueryRow?
 	var id uuid.UUID
 	if err := tx.QueryRow(ctx,
 		`DELETE FROM books b
@@ -89,7 +98,7 @@ func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Book
 		`SELECT 
 			b.id, 
 			b.title, 
-			b.author, 
+			b.author_id, 
 			b.published,
 			COALESCE(
 				json_agg(json_build_object(
@@ -129,7 +138,7 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.U
 		`SELECT 
 			b.id, 
 			b.title, 
-			b.author, 
+			b.author_id, 
 			b.published,
 			COALESCE(
 				json_agg(json_build_object(
@@ -177,7 +186,7 @@ func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
 		`SELECT 
 			b.id, 
 			b.title, 
-			b.author, 
+			b.author_id, 
 			b.published,
 			COALESCE(
 				json_agg(json_build_object(
