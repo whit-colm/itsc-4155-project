@@ -17,8 +17,8 @@ CREATE UNLOGGED TABLE scratchpad (
 -- Indexes --
 -------------
 
-CREATE UNIQUE INDEX i_admin_name ON admin (key);
-CREATE UNIQUE INDEX i_scratchpad_name ON scratchpad (key);
+CREATE UNIQUE INDEX i_admin_key ON admin (key);
+CREATE UNIQUE INDEX i_scratchpad_key ON scratchpad (key);
 
 ----------------
 -- Protection --

@@ -1,11 +1,11 @@
 CREATE TABLE blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-    val BYTEA
+    value BYTEA COMPRESSION LZ4
 );
 
 CREATE UNLOGGED TABLE blobs_cache (
     id UUID PRIMARY KEY REFERENCES blobs(id) ON DELETE CASCADE,
-    val BYTEA,
+    value BYTEA,
     expires_at TIMESTAMPTZ NOT NULL
 );
 
@@ -60,7 +60,7 @@ BEGIN
 
     IF NOT FOUND THEN 
         RAISE WARNING 'blobs_cache_config data not found, using defaults (TTL: 1h, size: 1G)';
-        v_max_cache := 1073741824;
+        v_max_cache := 1<<30;
         v_cache_ttl := '1 hour';
         INSERT INTO admin (key, value)
         VALUES ('blobs_cache_config', json_build_object(
@@ -75,10 +75,10 @@ BEGIN
         UPDATE blobs_cache
         SET expires_at = now () + v_cache_ttl
         WHERE id = p_id;
-        RETURN v_cached.val;
+        RETURN v_cached.value;
     ELSE
         -- If not in cache, fetch from main table
-        SELECT val INTO v_blob FROM blobs WHERE id = p_id;
+        SELECT value INTO v_blob FROM blobs WHERE id = p_id;
         IF NOT FOUND THEN
             RETURN NULL; -- Doesn't exist
         END IF;
@@ -103,12 +103,12 @@ BEGIN
                 ORDER BY expires_at ASC
                 LIMIT 1
             )
-            RETURNING octet_length(val) INTO v_deleted_size;
+            RETURNING octet_length(value) INTO v_deleted_size;
             v_current_size := v_current_size - v_deleted_size;
         END LOOP;
 
         -- Insert the new cache entry with fresh expiration timestamp
-        INSERT INTO blobs_cache (id, val, expires_at)
+        INSERT INTO blobs_cache (id, value, expires_at)
         VALUES (p_id, v_blob, now() + v_cache_ttl);
         
         RETURN v_blob;
