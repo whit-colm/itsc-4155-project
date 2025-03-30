@@ -1,8 +1,13 @@
 name: jaws
 services:
   db:
-    image: postgres:17-alpine
+    image: jaws-psql:latest
     container_name: &dbhost "jaws-psql"
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: db
+      network: host
     ports:
       - "54321:5432"
     environment:
@@ -11,8 +16,6 @@ services:
       POSTGRES_PASSWORD: &pgpswd "CqKq5RyEPpRkra8SY9glEnxrnsABD-CBNK_69H_VYveM7ZL8Kg_qIDHChASdbYRW"
     networks:
       - &network "jaws-net"
-    volumes:
-      - ./build/migrations:/docker-entrypoint-initdb.d
   app:
     image: jaws-app:latest
     container_name: jaws-app

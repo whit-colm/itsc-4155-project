@@ -62,3 +62,17 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
     CMD curl -f http://127.0.0.1:9000/api/health
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.
+
+FROM postgres:17-alpine AS db
+
+COPY build/migrations /docker-entrypoint-initdb.d
+RUN chown postgres:postgres /docker-entrypoint-initdb.d/*
+RUN apk update && \
+    apk upgrade && \
+    apk add postgresql-pg_cron
+RUN ln -s /usr/lib/postgresql17/pg_cron.so /usr/local/lib/postgresql/ && \
+    ln -s /usr/share/postgresql/extension/pg_cron* /usr/local/share/postgresql/extension
+
+CMD ["postgres",\
+    "-c",\
+    "shared_preload_libraries=pg_cron"]

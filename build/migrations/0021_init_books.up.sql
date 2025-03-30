@@ -12,8 +12,16 @@ CREATE TABLE books (
 CREATE TABLE isbns (
     isbn VARCHAR(13) PRIMARY KEY CHECK (LENGTH(isbn) IN (10, 13)),
     book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    isbn_type VARCHAR(6) NOT NULL CHECK (isbn_type IN ('isbn10', 'isbn13')),
+    isbn_type CHAR(6) NOT NULL CHECK (isbn_type IN ('isbn10', 'isbn13', 'google', 'opnlib')),
     search_vector TSVECTOR GENERATED ALWAYS AS (
         to_tsvector('english', isbn)
     ) STORED
 );
+
+-------------
+-- Indexes --
+-------------
+
+CREATE INDEX i_books_title ON books USING GIN (to_tsvector('english', title));
+CREATE INDEX i_books_author_id ON books (author_id);
+CREATE UNIQUE INDEX i_isbns_unique_book ON isbns(book_id, isbn_type);
