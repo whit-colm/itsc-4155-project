@@ -3,11 +3,11 @@ CREATE TABLE users (
     -- use regex as github ids are numeric. for now.
     github_id TEXT UNIQUE CHECK (github_id ~ '^\d+$'),
     display_name VARCHAR(32),
-    user_handle TEXT UNIQUE CHECK (user_handle ~ ^(.{2,32})#\d{4}$),
+    user_handle TEXT UNIQUE CHECK (user_handle ~ '^(.{2,32})#\d{4}$'),
     pronouns VARCHAR(16),
     email TEXT,
     avatar UUID REFERENCES blobs(id),
-    superuser BOOLEAN NOT NULL DEFAULT 0,
+    superuser BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
