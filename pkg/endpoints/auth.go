@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
@@ -22,30 +24,93 @@ import (
  * https://eli.thegreenplace.net/2023/sign-in-with-github-in-go/
  */
 
-func Auth() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		user := session.Get("user")
+// TODO: do not bake secret into the f*****g source code.
+var jwtSecret = []byte("cbcb8c38ce2dd3ac209148dfb9dea3499ca317a9eda1178e29dd1d52e21600c35534aa4624ce3470db52d09445d478ca")
 
-		if user == nil {
-			c.Redirect(http.StatusTemporaryRedirect, "/login")
-			c.Abort()
+type CustomClaims struct {
+	UserID uuid.UUID `json:"user"`
+	jwt.RegisteredClaims
+}
+
+// Auth middleware for protected endpoints
+func AuthenticationRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized,
+				jsonParsableError{
+					Summary: "authorization token is blank",
+					Details: nil,
+				},
+			)
 			return
 		}
 
-		c.Set("user", user)
-		c.Next()
+		// Expect header value to be in the format "Bearer <token>"
+		var tokenString string
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		} else {
+			c.AbortWithStatusJSON(http.StatusUnauthorized,
+				jsonParsableError{
+					Summary: "Authorization header invalid format`",
+					Details: fmt.Errorf("expected: `%v`; received: `%v`",
+						"Bearer ${TOKEN}",
+						authHeader,
+					),
+				},
+			)
+			return
+		}
+
+		token, err := jwt.ParseWithClaims(
+			tokenString,
+			&CustomClaims{},
+			func(token *jwt.Token) (interface{}, error) {
+				// Validate signing method
+				if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+					return nil, jwt.ErrInvalidKey
+				}
+				return jwtSecret, nil
+			},
+		)
+		// handle parse errors & invalid token
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized,
+				jsonParsableError{
+					Summary: "Invalid token",
+					Details: err,
+				},
+			)
+		}
+
+		// Verify claims
+		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+			c.Set("userID", claims.UserID)
+			c.Next()
+		} else {
+			c.AbortWithStatusJSON(http.StatusUnauthorized,
+				jsonParsableError{
+					Summary: "Invalid token",
+					Details: err,
+				},
+			)
+		}
 	}
 }
 
-type userHandle struct {
+/** Authentication endpoints **/
+
+type authHandle struct {
 	repo repository.UserManager
-	blob repository.BlobManager
 }
 
+var ah authHandle
+
 // Initial login endpoint for the user
-func (h *userHandle) Login(c *gin.Context) {
-	// Generate state
+func (h *authHandle) Login(c *gin.Context) {
+	// Generate state, used to verify the user sent back by GitHub is
+	// the same one we sent it. It's just a random string.
 	state, err := func(n int) (string, error) {
 		bytes := make([]byte, n)
 		if _, err := io.ReadFull(rand.Reader, bytes); err != nil {
@@ -76,35 +141,30 @@ func (h *userHandle) Login(c *gin.Context) {
 // The redirection path GitHub yaps at
 //
 // By now, GitHub has authenticated the user, we can exchange the
-func (h *userHandle) GithubCallback(c *gin.Context) {
+func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 	if state, err := c.Cookie("state"); err != nil {
-		fmt.Printf("%v:\t%v\n", state, err)
-		c.JSON(http.StatusBadRequest,
-			jsonParsableError{Summary: "state not found",
-				Details: err})
-		return
+		return http.StatusBadRequest,
+			"state not found",
+			err
 	} else if c.Query("state") != state {
-		c.JSON(http.StatusBadRequest,
-			jsonParsableError{Summary: "state did not match",
-				Details: err})
-		return
+		return http.StatusBadRequest,
+			"state did not match",
+			err
 	}
 
 	tok, err := conf.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest,
-			jsonParsableError{Summary: "token exchange failure",
-				Details: err})
-		return
+		return http.StatusBadRequest,
+			"token exchange failure",
+			err
 	}
 
 	client := conf.Client(c.Request.Context(), tok)
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,
-			jsonParsableError{Summary: "could not generate client from token",
-				Details: err})
-		return
+		return http.StatusInternalServerError,
+			"could not generate client from token",
+			err
 	}
 	defer resp.Body.Close()
 
@@ -118,97 +178,65 @@ func (h *userHandle) GithubCallback(c *gin.Context) {
 
 	// respbody is our JSON object defining the user
 	if rb, err := io.ReadAll(resp.Body); err != nil {
-		c.JSON(http.StatusInternalServerError,
-			jsonParsableError{Summary: "could not read body",
-				Details: err})
-		return
+		return http.StatusInternalServerError,
+			"could not read body",
+			err
 	} else if err = json.Unmarshal(rb, &aux); err != nil {
-		c.JSON(http.StatusInternalServerError,
-			jsonParsableError{Summary: "could not unmarshal user info",
-				Details: err})
-		return
+		return http.StatusInternalServerError,
+			"could not unmarshal user info",
+			err
 	}
 
 	// Now we have to either create a user if this is the first log-in
 	// otherwise we can just issue our token and move on
-	if exists, err := h.repo.ExistsByGithubID(c.Request.Context(), string(aux.ID)); err != nil {
-		summary := fmt.Sprintf("could not retrieve user with ID `%s`", string(aux.ID))
-		c.JSON(http.StatusServiceUnavailable,
-			jsonParsableError{Summary: summary,
-				Details: err})
-		return
+	if exists, err := h.repo.ExistsByGithubID(c.Request.Context(), strconv.Itoa(aux.ID)); err != nil {
+		return http.StatusServiceUnavailable,
+			fmt.Sprintf("could not retrieve user with ID `%s`", strconv.Itoa(aux.ID)),
+			err
 	} else if !exists {
-		// Get the image & convert it to base64
-		imgB64, code, jErr := func(url string) (string, int, *jsonParsableError) {
-			resp, err := http.Get(url)
-			defer resp.Body.Close()
-			if err != nil {
-				return "",
-					http.StatusServiceUnavailable,
-					&jsonParsableError{
-						Summary: "could not fetch profile image from URL",
-						Details: err,
-					}
-			}
-
-			var imgB64 string
-			if rb, err := io.ReadAll(resp.Body); err != nil {
-				return "",
-					http.StatusInternalServerError,
-					&jsonParsableError{
-						Summary: "could not read body for profile image",
-						Details: err,
-					}
-			} else {
-				imgB64 = base64.URLEncoding.EncodeToString(rb)
-			}
-
-			return imgB64, 200, nil
-		}(aux.AvatarURL)
-		if jErr != nil {
-			c.JSON(code, *jErr)
-		}
-
-		imgID, err := uuid.NewV7()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError,
-				jsonParsableError{Summary: "could not generate UUIDv7",
-					Details: err})
-			return
-		}
-
-		userID, err := uuid.NewV7()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError,
-				jsonParsableError{Summary: "could not generate UUIDv7",
-					Details: err})
-			return
-		}
-
-		b := model.Blob{
-			ID:      imgID,
-			Content: imgB64,
-		}
-
+		// Generate incomplete User to create
+		// (everything else done in userhandle create method)
 		u := model.User{
-			ID:          userID,
-			GitHubID:    string(aux.ID),
+			GitHubID:    strconv.Itoa(aux.ID),
 			DisplayName: aux.Name,
 			UserHandle:  aux.Login,
 			Email:       aux.Email,
-			Avatar:      imgID,
+			Admin:       false,
 		}
-		h.blob.Create(c.Request.Context(), &b)
-		h.repo.Create(c.Request.Context(), &u)
+
+		if status, summary, serr := uh.create(c.Request.Context(), u, aux.AvatarURL); status != http.StatusOK {
+			return status, summary, serr
+		} else if serr != nil {
+			c.Error(serr)
+		}
+	}
+	// By this point we are certain the user exists; either because
+	// they've just logged in or their account has been created. We now
+	// issue a JWT now.
+	u, err := h.repo.GetByGithubID(c.Request.Context(), strconv.Itoa(aux.ID))
+	if err != nil {
+		return http.StatusServiceUnavailable,
+			"failed to find",
+			err
 	}
 
-	c.JSONP(http.StatusOK, aux)
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.RegisteredClaims{
+		Issuer:    "JAWS_test_app",
+		Subject:   u.ID.String(),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(72 * time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+	})
+	if tokenString, err := token.SignedString(jwtSecret); err != nil {
+		return http.StatusInternalServerError,
+			"could not generate token",
+			err
+	} else {
+		c.JSON(http.StatusOK, gin.H{"token": tokenString})
+		return 0, "", nil
+	}
 }
 
-func (h *userHandle) Logout(c *gin.Context) {
+func (h *authHandle) Logout(c *gin.Context) (code int, sum string, err error) {
 	c.JSON(http.StatusOK, "{}")
-}
-
-func (h *userHandle) AccountInfo(c *gin.Context) {
-	c.JSON(http.StatusOK, "{}")
+	return
 }

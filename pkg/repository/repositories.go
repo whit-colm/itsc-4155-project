@@ -79,4 +79,5 @@ type UserManager interface {
 	Searcher[model.User]
 	GetByGithubID(ctx context.Context, ghid string) (*model.User, error)
 	ExistsByGithubID(ctx context.Context, ghid string) (bool, error)
+	GetByUserHandle(ctx context.Context, handle string) (*model.User, error)
 }
