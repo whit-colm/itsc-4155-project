@@ -66,7 +66,8 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
 FROM postgres:17-alpine AS db
 
 COPY build/migrations /docker-entrypoint-initdb.d
-RUN chown postgres:postgres /docker-entrypoint-initdb.d/*
+RUN chown postgres:postgres /docker-entrypoint-initdb.d/* && \
+    chmod +x /docker-entrypoint-initdb.d/*.sh
 RUN apk update && \
     apk upgrade && \
     apk add postgresql-pg_cron

@@ -133,12 +133,3 @@ BEGIN
     RAISE INFO 'Cleaned: % items', COALESCE(v_deleted_count, 0);
 END;
 $$ LANGUAGE plpgsql;
-
--- NOTE: this requires the pg_cron extension
--- https://github.com/citusdata/pg_cron
-SELECT cron.schedule_in_database(
-    'blob-cache-clean-expired', 
-    '*/15 * * * *', 
-    'CALL blob_cache_clean_expired()', 
-    current_database()
-);

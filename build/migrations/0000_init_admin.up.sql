@@ -1,5 +1,3 @@
-CREATE EXTENSION pg_cron;
-
 -- Create admin table. this is single things that need to be preserved
 -- but are not necessarily structured
 CREATE TABLE admin (
