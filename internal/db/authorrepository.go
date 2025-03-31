@@ -47,27 +47,19 @@ func (b *authorRepository) Update(ctx context.Context, t *model.Author) (*model.
 }
 
 // Delete implements repository.AuthorManager.
-func (a *authorRepository) Delete(ctx context.Context, author *model.Author) error {
+func (a *authorRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	result, err := tx.Exec(ctx,
+	if _, err := tx.Exec(ctx,
 		`DELETE FROM authors a
-		 WHERE a.id = $1
-		 RETURNING id`,
-		author.ID, author.GivenName, author.GivenName,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to insert author: %w", err)
-	}
-	if id, err := uuid.Parse(result.String()); err != nil {
-		return fmt.Errorf("invalid UUID returned: %w", err)
-	} else if id != author.ID {
-		return fmt.Errorf("wrong book was deleted. want: %v; got: %v",
-			author.ID, id)
+		 WHERE a.id = $1`,
+		id,
+	); err != nil {
+		return fmt.Errorf("delete author: %w", err)
 	}
 
 	return tx.Commit(ctx)

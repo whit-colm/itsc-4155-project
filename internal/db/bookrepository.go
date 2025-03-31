@@ -61,25 +61,19 @@ func (b *bookRepository) Update(ctx context.Context, t *model.Book) (*model.Book
 	panic("unimplemented")
 }
 
-func (b *bookRepository) Delete(ctx context.Context, book *model.Book) error {
+func (b *bookRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// TODO: use Exec over QueryRow?
-	var id uuid.UUID
-	if err := tx.QueryRow(ctx,
+	if _, err := tx.Exec(ctx,
 		`DELETE FROM books b
-		 WHERE b.id = $1
-		 RETURNING id`,
-		book.ID).Scan(&id); err != nil {
+		 WHERE b.id = $1`,
+		id,
+	); err != nil {
 		return fmt.Errorf("failed to delete book: %w", err)
-	}
-
-	if id != book.ID {
-		return fmt.Errorf("wrong book was deleted. want: `%v`; have: `%v`", book.ID, id)
 	}
 
 	// We shouldn't have to delete the ISBNs ourselves, on delete they

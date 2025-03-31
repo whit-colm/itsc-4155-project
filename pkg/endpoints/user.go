@@ -5,9 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base32"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"slices"
@@ -73,7 +71,7 @@ func (h *userHandle) Delete(c *gin.Context) {
 		return
 	}
 
-	err := h.repo.Delete(c.Request.Context(), nil)
+	err := h.repo.Delete(c.Request.Context(), uuid.Nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError,
 			jsonParsableError{
@@ -83,7 +81,7 @@ func (h *userHandle) Delete(c *gin.Context) {
 		)
 	}
 	// Try to delete but we don't really care tbh
-	h.blob.Delete(c.Request.Context(), nil)
+	h.blob.Delete(c.Request.Context(), uuid.Nil)
 }
 
 // Not an endpoint to be exposed directly!!!
@@ -96,15 +94,6 @@ func (h *userHandle) create(ctx context.Context, u model.User, a string) (int, s
 			err
 	}
 	defer resp.Body.Close()
-
-	var imgB64 string
-	if rb, err := io.ReadAll(resp.Body); err != nil {
-		return http.StatusInternalServerError,
-			"could not read body for profile image",
-			err
-	} else {
-		imgB64 = base64.URLEncoding.EncodeToString(rb)
-	}
 
 	imgID, err := uuid.NewV7()
 	if err != nil {
@@ -122,7 +111,7 @@ func (h *userHandle) create(ctx context.Context, u model.User, a string) (int, s
 
 	b := model.Blob{
 		ID:      imgID,
-		Content: imgB64,
+		Content: resp.Body,
 	}
 
 	u.ID = userID

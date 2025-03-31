@@ -16,6 +16,7 @@ type Repository struct {
 	User   UserManager
 	Author AuthorManager
 	Book   BookManager
+	Blob   BlobManager
 }
 
 type Creator[T any] interface {
@@ -42,7 +43,7 @@ type CRUDmanager[T any] interface {
 	Create(ctx context.Context, t *T) error
 	GetByID(ctx context.Context, id uuid.UUID) (*T, error)
 	Update(ctx context.Context, t *T) (*T, error)
-	Delete(ctx context.Context, t *T) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // This is cooked for the time being. Do not use.

@@ -194,12 +194,18 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 			fmt.Sprintf("could not retrieve user with ID `%s`", strconv.Itoa(aux.ID)),
 			err
 	} else if !exists {
+		handle, err := model.UsernameFromHandle(aux.Login)
+		if err != nil {
+			return http.StatusInternalServerError,
+				"invalid handle, could not coerce username",
+				err
+		}
 		// Generate incomplete User to create
 		// (everything else done in userhandle create method)
 		u := model.User{
-			GitHubID:    strconv.Itoa(aux.ID),
+			GithubID:    strconv.Itoa(aux.ID),
 			DisplayName: aux.Name,
-			UserHandle:  aux.Login,
+			Username:    handle,
 			Email:       aux.Email,
 			Admin:       false,
 		}

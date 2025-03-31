@@ -1,8 +1,12 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"io"
+
+	"github.com/google/uuid"
+)
 
 type Blob struct {
 	ID      uuid.UUID
-	Content string
+	Content io.Reader
 }

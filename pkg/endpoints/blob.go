@@ -9,6 +9,8 @@ type blobHandle struct {
 	blob repository.BlobManager
 }
 
+var lh blobHandle
+
 func (b *blobHandle) GetRaw(c *gin.Context) {
 	panic("unimplemented")
 }

@@ -15,6 +15,8 @@ type bookHandle struct {
 	repo repository.BookManager
 }
 
+var bh bookHandle
+
 func (bh *bookHandle) GetBooks(c *gin.Context) {
 	s, err := bh.repo.Search(c.Request.Context())
 	if err != nil {
