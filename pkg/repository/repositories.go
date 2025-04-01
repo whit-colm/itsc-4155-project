@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"crypto"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
@@ -13,18 +15,15 @@ import (
 // TODO: I don't like this.
 type Repository struct {
 	Store  StoreManager
+	Auth   AuthManager
 	User   UserManager
 	Author AuthorManager
 	Book   BookManager
 	Blob   BlobManager
 }
 
-type Creator[T any] interface {
-	New(t any) (T, error)
-}
-
 type StoreManager interface {
-	Connect(args any) error
+	Connect(ctx context.Context, args ...any) error
 	// A ping verifies the connection to the datastore is still
 	// available, returning an error if something doesn't work
 	//
@@ -44,6 +43,12 @@ type CRUDmanager[T any] interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*T, error)
 	Update(ctx context.Context, t *T) (*T, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type AuthManager interface {
+	Key(ctx context.Context) (crypto.Signer, error)
+	Expiry(ctx context.Context) (time.Time, error)
+	Rotate(ctx context.Context, ttl time.Duration) (crypto.Signer, error)
 }
 
 // This is cooked for the time being. Do not use.

@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"crypto"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -33,83 +35,64 @@ var connOnce sync.Once
 // all other methods.
 //
 // Make sure to defer *Disconnect()* after connecting.
-func (p *postgres) Connect(args any) error {
-	uri, ok := args.(string)
-	if !ok {
-		return fmt.Errorf("failure casting args to URI: %#v", args)
-	}
-
-	var err error
-	connOnce.Do(func() {
-		p.db, err = pgxpool.New(context.Background(), uri)
-	})
+func (p *postgres) Connect(ctx context.Context, args ...any) error {
+	uri, chn, err := func(args ...any) (string, chan<- error, error) {
+		if len(args) != 2 {
+			panic("WRONG LEN")
+			return "", nil, fmt.Errorf("invalid number of arguments, want `2` have `%d`",
+				len(args),
+			)
+		}
+		uriA := args[0]
+		chnA := args[1]
+		uri, ok := uriA.(string)
+		if !ok {
+			panic("BAD CAST URI")
+			return "", nil, fmt.Errorf("cannot cast arg uri (`%#v`) to `string`", uriA)
+		}
+		chn, ok := chnA.(chan error)
+		if !ok {
+			panic("BAD CAST CHAN")
+			return "", nil, fmt.Errorf("cannot cast arg eCh (`%#v`) to `chan error`", chnA)
+		}
+		return uri, chn, nil
+	}(args...)
 	if err != nil {
-		fmt.Errorf("instantiate db pool: %w", err)
+		return fmt.Errorf("parse args: %w", err)
+	}
+	defer close(chn)
+
+	// Connect & Ping the server or die trying.
+	for {
+		p.db, err = pgxpool.New(ctx, uri)
+		if err != nil {
+			errF := fmt.Errorf("connect to db: %w", err)
+			chn <- errF
+			return errF
+		}
+		// We do not care (ish) about the error, we just keep trying
+		// until it wors or expires
+		// TODO: care about the error
+		if err = p.Ping(ctx); err != nil {
+			time.Sleep(1 * time.Second)
+		} else {
+			break
+		}
 	}
 
 	// The rest of this is initial db setup, inserting
 	// necessary fields into the database like cryptographic keys
-	var ctx context.Context = context.Background()
-	var authExists bool
-	var jsonData []byte
-	if err = p.db.QueryRow(ctx,
-		`SELECT EXISTS (
-			 SELECT 1 FROM admin WHERE key = 'auth_crypto'
-		 ),
-		 (
-		 	 SELECT value FROM admin WHERE key = 'auth_crypto'
-		 )`,
-	).Scan(&authExists, &jsonData); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		fmt.Errorf("retrieve key config: %w", err)
-	}
-
-	needsRegen := !authExists
-	genSecret := func() string {
-		secret := make([]byte, 96)
-		rand.Read(secret)
-		return base64.StdEncoding.EncodeToString(secret)
-	}
-
-	if authExists {
-		var aux struct {
-			Secret string    `json:"secret"`
-			Expiry time.Time `json:"expiry"`
-		}
-		if err := json.Unmarshal(jsonData, &aux); err != nil {
-			// If json is invalid, we just regenerate it
-			needsRegen = true
-		} else {
-			// Check conditions that require regeneration:
-			// 1. Key is empty
-			// 2. Expiry is empty
-			// 3. The current time is after expiry
-			needsRegen = aux.Secret == "" ||
-				aux.Expiry.IsZero() ||
-				time.Now().After(aux.Expiry)
-		}
-	}
-
-	if needsRegen {
-		s := genSecret()
-		e := time.Now().Add(365 * 24 * time.Hour)
-
-		if _, err := p.db.Exec(ctx,
-			`INSERT INTO admin (key, value)
-			 VALUES ('auth_crypto', jsonb_build_object(
-			 	 'secret', $1::TEXT,
-				 'expiry', $2::TIMESTAMPTZ
-			 ))
-			 ON CONFLICT (key) DO 
-			 UPDATE SET value = jsonb_build_object(
-			 	 'secret', $1::TEXT,
-				 'expiry', $2::TIMESTAMPTZ
-			 )`, s, e.Format(time.RFC3339),
-		); err != nil {
-			return fmt.Errorf("update auth_crypto: %w", err)
+	if _, exp, err := p.getAuth(ctx); err != nil || exp.After(time.Now()) {
+		const YEAR = (365 * 24 * time.Hour)
+		if _, err = p.Rotate(ctx, YEAR); err != nil {
+			errF := fmt.Errorf("rotate keys from key err: %w", err)
+			chn <- errF
+			return errF
 		}
 	}
 
 	// Check blob cache table configuration
+	var jsonData []byte
 	var cacheConfigured bool
 	if err = p.db.QueryRow(ctx,
 		`SELECT EXISTS (
@@ -119,10 +102,13 @@ func (p *postgres) Connect(args any) error {
 		 	 SELECT value FROM admin WHERE key = 'blobs_cache_config'
 		 )`,
 	).Scan(&cacheConfigured, &jsonData); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return fmt.Errorf("retrieve key config: %w", err)
+
+		errF := fmt.Errorf("retrieve key config: %w", err)
+		chn <- errF
+		return errF
 	}
 
-	needsRegen = !cacheConfigured
+	needsRegen := !cacheConfigured
 
 	if cacheConfigured {
 		var aux struct {
@@ -159,21 +145,41 @@ func (p *postgres) Connect(args any) error {
 				 'ttl', ($2::INTEGER::TEXT || ' seconds')::INTERVAL
 			 )`, maxCache, ttl.Seconds(),
 		); err != nil {
-			return fmt.Errorf("update blobs_cache_config: %w", err)
+			errF := fmt.Errorf("update blobs_cache_config: %w", err)
+			chn <- errF
+			return errF
 		}
 	}
 	return nil
 }
 
-func NewRepository(uri string) (r repository.Repository, err error) {
+func NewRepository(uri string, timeout time.Duration) (repository.Repository, error) {
 	db := &postgres{}
-	err = db.Connect(uri)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	eCh := make(chan error)
+
+	go connOnce.Do(func() {
+		db.Connect(ctx, uri, eCh)
+	})
+
+	var r repository.Repository
+	select {
+	case err := <-eCh:
+		if err != nil {
+			return r, fmt.Errorf("instantiate repository: %w", err)
+		}
+	case <-ctx.Done():
+		return r, fmt.Errorf("%w", ctx.Err())
+	}
+
 	r.Store = db
+	r.Auth = db
 	r.Book = newBookRepository(db)
 	r.Author = newAuthorRepository(db)
 	r.User = newUserRepository(db)
 	r.Blob = newBlobRepository(db)
-	return
+	return r, nil
 }
 
 // Disconnect the connection.
@@ -182,4 +188,80 @@ func NewRepository(uri string) (r repository.Repository, err error) {
 func (pg *postgres) Disconnect() error {
 	pg.db.Close()
 	return nil
+}
+
+func (pg *postgres) getAuth(ctx context.Context) (crypto.Signer, time.Time, error) {
+	var authExists bool
+	var jsonData []byte
+	if err := pg.db.QueryRow(ctx,
+		`SELECT EXISTS (
+			 SELECT 1 FROM admin WHERE key = 'auth_crypto'
+		 ),
+		 (
+		 	 SELECT value FROM admin WHERE key = 'auth_crypto'
+		 )`,
+	).Scan(&authExists, &jsonData); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, time.Time{}, fmt.Errorf("retrieve key config: %w", err)
+	}
+
+	if !authExists {
+		return nil, time.Time{}, fmt.Errorf("key not found")
+	}
+
+	// Keys stored in b64
+	var aux struct {
+		Private string    `json:"priv"`
+		Public  string    `json:"pub"`
+		Expiry  time.Time `json:"expiry"`
+	}
+	if err := json.Unmarshal(jsonData, &aux); err != nil {
+		return nil, time.Time{}, fmt.Errorf("unmarshal key: %w", err)
+	}
+	var privKey ed25519.PrivateKey
+	privKey, err := base64.StdEncoding.DecodeString(aux.Private)
+	if err != nil {
+		return nil, time.Time{}, fmt.Errorf("decode key: %w", err)
+	}
+	return privKey, aux.Expiry, nil
+}
+
+func (pg *postgres) Key(ctx context.Context) (crypto.Signer, error) {
+	sig, _, err := pg.getAuth(ctx)
+	return sig, err
+}
+
+func (pg *postgres) Expiry(ctx context.Context) (time.Time, error) {
+	_, exp, err := pg.getAuth(ctx)
+	return exp, err
+}
+
+func (pg *postgres) Rotate(ctx context.Context, ttl time.Duration) (crypto.Signer, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	privS := base64.StdEncoding.EncodeToString(priv)
+	pubS := base64.StdEncoding.EncodeToString(pub)
+	if err != nil {
+		return nil, err
+	}
+	e := time.Now().Add(ttl)
+
+	if _, err := pg.db.Exec(ctx,
+		`INSERT INTO admin (key, value)
+	 	 VALUES ('auth_crypto', jsonb_build_object(
+	 	 	 'priv', $1::TEXT,
+			 'pub', $2::TEXT,
+		 	 'expiry', $3::TIMESTAMPTZ
+	 	 ))
+	 	 ON CONFLICT (key) DO 
+		 UPDATE SET value = jsonb_build_object(
+		 	 'priv', $1::TEXT,
+			 'pub', $2::TEXT,
+		 	 'expiry', $3::TIMESTAMPTZ
+	 	 )`,
+		privS,
+		pubS,
+		e.Format(time.RFC3339),
+	); err != nil {
+		return nil, fmt.Errorf("update auth_crypto: %w", err)
+	}
+	return priv, nil
 }

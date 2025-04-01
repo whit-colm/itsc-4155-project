@@ -34,14 +34,14 @@ func (u *userRepository) Create(ctx context.Context, t *model.User) error {
 	}
 	defer tx.Rollback(ctx)
 
-	handle, disc := t.Username.Components()
+	handle, discriminator := t.Username.Components()
 
 	if _, err = tx.Exec(ctx,
 		`INSERT INTO users (id, github_id, display_name, handle,
 		 	discriminator, email, avatar, superuser)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		t.ID, t.GithubID, t.DisplayName, handle, disc, t.Email,
-		t.Avatar, t.Admin,
+		t.ID, t.GithubID, t.DisplayName, handle, discriminator,
+		t.Email, t.Avatar, t.Admin,
 	); err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
 	}
@@ -90,12 +90,12 @@ func (u *userRepository) GetByGithubID(ctx context.Context, ghid string) (*model
 	if err := u.db.QueryRow(ctx,
 		`SELECT 
 			 u.id,
-			 u.github_id,
-			 u.display_name,
-			 u.pronouns,
+			 COALESCE(u.github_id, ''),
+			 COALESCE(u.display_name, u.handle),
+			 COALESCE(u.pronouns, ''),
 			 u.handle,
 			 u.discriminator,
-			 u.email,
+			 COALESCE(u.email, ''),
 			 u.avatar,
 		 	 u.superuser
 		 FROM users u

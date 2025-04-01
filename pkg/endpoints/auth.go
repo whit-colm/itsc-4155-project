@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"crypto"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -25,7 +26,7 @@ import (
  */
 
 // TODO: do not bake secret into the f*****g source code.
-var jwtSecret = []byte("cbcb8c38ce2dd3ac209148dfb9dea3499ca317a9eda1178e29dd1d52e21600c35534aa4624ce3470db52d09445d478ca")
+var jwtSigner crypto.Signer
 
 type CustomClaims struct {
 	UserID uuid.UUID `json:"user"`
@@ -71,7 +72,7 @@ func AuthenticationRequired() gin.HandlerFunc {
 				if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
 					return nil, jwt.ErrInvalidKey
 				}
-				return jwtSecret, nil
+				return jwtSigner, nil
 			},
 		)
 		// handle parse errors & invalid token
@@ -103,6 +104,7 @@ func AuthenticationRequired() gin.HandlerFunc {
 
 type authHandle struct {
 	repo repository.UserManager
+	auth repository.AuthManager
 }
 
 var ah authHandle
@@ -194,6 +196,7 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 			fmt.Sprintf("could not retrieve user with ID `%s`", strconv.Itoa(aux.ID)),
 			err
 	} else if !exists {
+		fmt.Println("DEBUG: CREATING NEW USER")
 		handle, err := model.UsernameFromHandle(aux.Login)
 		if err != nil {
 			return http.StatusInternalServerError,
@@ -216,6 +219,7 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 			c.Error(serr)
 		}
 	}
+	fmt.Println("DEBUG: SEARCHING FOR USER")
 	// By this point we are certain the user exists; either because
 	// they've just logged in or their account has been created. We now
 	// issue a JWT now.
@@ -232,7 +236,7 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(72 * time.Hour)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	})
-	if tokenString, err := token.SignedString(jwtSecret); err != nil {
+	if tokenString, err := token.SignedString(jwtSigner); err != nil {
 		return http.StatusInternalServerError,
 			"could not generate token",
 			err

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
@@ -88,12 +89,16 @@ func Run(args []string) int {
 	// Instantiate our concrete storage class (PostgreSQL)
 	// Although as far as the rest of the program is concerned, it's a
 	// bunch of repositories
-	ds, err := db.NewRepository(fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
-		runtimeConfig.PsqlUser,
-		runtimeConfig.PsqlPassword,
-		runtimeConfig.PsqlHost,
-		runtimeConfig.PsqlPort,
-		runtimeConfig.PsqlDatabase))
+	ds, err := db.NewRepository(
+		fmt.Sprintf("postgres://%v:%v@%v:%v/%v",
+			runtimeConfig.PsqlUser,
+			runtimeConfig.PsqlPassword,
+			runtimeConfig.PsqlHost,
+			runtimeConfig.PsqlPort,
+			runtimeConfig.PsqlDatabase,
+		),
+		30*time.Second,
+	)
 	if err != nil {
 		fmt.Printf("error connecting to datastore: %s\n", err)
 		return 8
