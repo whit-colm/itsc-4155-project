@@ -3,9 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
 import Recommendations from './pages/Recommendations';
 import Search from './pages/Search';
-// import CreateAccount from './pages/CreateAccount';
-// import Login from './pages/Login';
-// import Profile from './pages/Profile';
+import CreateAccount from './pages/CreateAccount';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
 import CreateBook from './pages/CreateBook';
 import BookDetails from './pages/BookDetails';
 import './App.css';
@@ -34,7 +34,7 @@ function App() {
               <li>
                 <Link to="/search">Search</Link>
               </li>
-              {/* {!isLoggedIn && (
+              {!isLoggedIn && (
                 <li>
                   <Link to="/create-account">Create Account</Link>
                 </li>
@@ -48,12 +48,12 @@ function App() {
                 <li>
                   <Link to="/profile">Profile</Link>
                 </li>
-              )} */}
-              {/* {isLoggedIn && ( */}
+              )}
+              {isLoggedIn && (
                 <li>
                   <Link to="/create-book">Create Book</Link>
                 </li>
-              {/* )} */}
+              )}
             </ul>
           </nav>
         </header>
@@ -61,9 +61,9 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/search" element={<Search />} />
-          {/* <Route path="/create-account" element={<CreateAccount />} />
+          <Route path="/create-account" element={<CreateAccount />} />
           <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
-          <Route path="/profile" element={<Profile />} /> */}
+          <Route path="/profile" element={<Profile />} />
           <Route path="/create-book" element={<CreateBook />} />
           <Route path="/books/:uuid" element={<BookDetails />} />
         </Routes>
