@@ -13,25 +13,27 @@ import (
  */
 
 var (
-	ErrorNotFound = errors.New("not found")
+	ErrorNotFound      = errors.New("not found")
+	ErrorBadConnection = errors.New("bad connection")
+	ErrorBadTypecast   = errors.New("failed to typecast")
 )
 
-type Error struct {
+type Err struct {
 	Code error
 	Err  error
 }
 
-func (e *Error) Error() string {
+func (e *Err) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %s", e.Code, e.Err)
 	}
 	return e.Code.Error()
 }
 
-func (e *Error) Unwrap() error {
+func (e *Err) Unwrap() error {
 	return e.Err
 }
 
-func (e *Error) Is(target error) bool {
+func (e *Err) Is(target error) bool {
 	return errors.Is(e.Code, target)
 }

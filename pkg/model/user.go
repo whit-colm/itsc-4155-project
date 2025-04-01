@@ -67,7 +67,7 @@ var (
 	// either [lHandleWhtespRe] or [rHandleWhtespRe]
 	rHandleWhtespRe *regexp.Regexp
 
-	protectedHandles []string = []string{"system", "deleted user"}
+	ReservedHandles []string = []string{"system", "deleted user"}
 )
 
 func init() {
@@ -165,7 +165,7 @@ func UsernameFromComponents[I int16 | int](handle string, discriminator I) (User
 		)
 	}
 
-	protectedHandle := slices.Contains(protectedHandles, handle)
+	protectedHandle := slices.Contains(ReservedHandles, handle)
 	vh := validHandle(handle)
 	vd := validDiscriminator(d, protectedHandle)
 	if !vh || !vd {

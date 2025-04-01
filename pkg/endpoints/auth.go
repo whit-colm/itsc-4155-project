@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,25 +27,45 @@ import (
  */
 
 // TODO: do not bake secret into the f*****g source code.
-var jwtSigner crypto.Signer
-
-type CustomClaims struct {
-	UserID uuid.UUID `json:"user"`
-	jwt.RegisteredClaims
+type jwtCustomSigner struct {
+	priv crypto.Signer
+	pub  crypto.PublicKey
 }
 
-// Auth middleware for protected endpoints
-func AuthenticationRequired() gin.HandlerFunc {
+var (
+	jwtSigner            jwtCustomSigner
+	errUserIDKeyNotFound = errors.New("could not find key `UserID` in context")
+)
+
+// test if custom signer implements inheritance
+var _ crypto.Signer = (*jwtCustomSigner)(nil)
+
+func (j jwtCustomSigner) Public() crypto.PublicKey {
+	return j.pub
+}
+
+func (j jwtCustomSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	return j.priv.Sign(rand, digest, opts)
+}
+
+// Auth middleware to validate token & set up user-specific data in gontext
+//
+// This does *NOT* validate if the user can access a resource, it
+// merely decrypts user data from the authorization token.
+//
+// There are three defined behaviors:
+//
+//  1. If no authorization token is passed it continues without
+//     modifying the gin context
+//  2. If an authorization token is passed and can be validated, it
+//     stores the user's UUID in the gin context's `userID` key
+//  3. If an authorization token is passed but cannot be validated, it
+//     aborts with a JSON status
+func AuthorizationJWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized,
-				jsonParsableError{
-					Summary: "authorization token is blank",
-					Details: nil,
-				},
-			)
-			return
+			c.Next()
 		}
 
 		// Expect header value to be in the format "Bearer <token>"
@@ -52,10 +73,10 @@ func AuthenticationRequired() gin.HandlerFunc {
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			tokenString = authHeader[7:]
 		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized,
+			c.AbortWithStatusJSON(http.StatusBadRequest,
 				jsonParsableError{
-					Summary: "Authorization header invalid format`",
-					Details: fmt.Errorf("expected: `%v`; received: `%v`",
+					Summary: "authorization header invalid format`",
+					Details: fmt.Errorf("authorization header expected `%v`, received `%v`",
 						"Bearer ${TOKEN}",
 						authHeader,
 					),
@@ -66,38 +87,64 @@ func AuthenticationRequired() gin.HandlerFunc {
 
 		token, err := jwt.ParseWithClaims(
 			tokenString,
-			&CustomClaims{},
+			&jwt.RegisteredClaims{},
 			func(token *jwt.Token) (interface{}, error) {
 				// Validate signing method
 				if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
 					return nil, jwt.ErrInvalidKey
 				}
-				return jwtSigner, nil
+				return jwtSigner.Public(), nil
 			},
 		)
 		// handle parse errors & invalid token
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized,
 				jsonParsableError{
-					Summary: "Invalid token",
-					Details: err,
+					Summary: "Failed to parse token claims.",
+					Details: fmt.Errorf("get authorization JWT: %w", err),
 				},
 			)
 		}
 
 		// Verify claims
-		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-			c.Set("userID", claims.UserID)
+		if subj, err := token.Claims.GetSubject(); err == nil && token.Valid {
+			c.Set("userID", subj)
 			c.Next()
-		} else {
+		} else if !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized,
 				jsonParsableError{
-					Summary: "Invalid token",
-					Details: err,
+					Summary: "Token is invalid.",
+					Details: fmt.Errorf("get authorization JWT: %w", err),
+				},
+			)
+		} else {
+			c.AbortWithStatusJSON(http.StatusBadRequest,
+				jsonParsableError{
+					Summary: "Get claim subject returned error.",
+					Details: fmt.Errorf("get authorization JWT: %w", err),
 				},
 			)
 		}
 	}
+}
+
+// Wrapper to get usable UUID type from gin context key-value store
+func ginContextUserID(c *gin.Context) (uuid.UUID, error) {
+	idAny, ok := c.Get("userID")
+	if !ok {
+		return uuid.Nil, errUserIDKeyNotFound
+	}
+	idStr, valid := idAny.(string)
+	if !valid {
+		return uuid.Nil, fmt.Errorf("assert %t `%#v` (any) -> `string`",
+			valid, idAny)
+	}
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("convert %s (string) -> `UUID`: %w",
+			idStr, err)
+	}
+	return id, nil
 }
 
 /** Authentication endpoints **/
@@ -196,7 +243,6 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 			fmt.Sprintf("could not retrieve user with ID `%s`", strconv.Itoa(aux.ID)),
 			err
 	} else if !exists {
-		fmt.Println("DEBUG: CREATING NEW USER")
 		handle, err := model.UsernameFromHandle(aux.Login)
 		if err != nil {
 			return http.StatusInternalServerError,
@@ -219,15 +265,22 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 			c.Error(serr)
 		}
 	}
-	fmt.Println("DEBUG: SEARCHING FOR USER")
 	// By this point we are certain the user exists; either because
 	// they've just logged in or their account has been created. We now
 	// issue a JWT now.
 	u, err := h.repo.GetByGithubID(c.Request.Context(), strconv.Itoa(aux.ID))
-	if err != nil {
+	if errors.Is(err, repository.ErrorNotFound) {
+		return http.StatusInternalServerError,
+			"Did not find user with the given GitHub ID",
+			fmt.Errorf("login github callback: %w", err)
+	} else if errors.Is(err, repository.ErrorBadConnection) {
 		return http.StatusServiceUnavailable,
-			"failed to find",
-			err
+			"Issue querying the database",
+			fmt.Errorf("login github callback: %w", err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"Error searching for user with the given GitHub ID",
+			fmt.Errorf("login github callback: %w", err)
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.RegisteredClaims{
@@ -236,6 +289,7 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(72 * time.Hour)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	})
+
 	if tokenString, err := token.SignedString(jwtSigner); err != nil {
 		return http.StatusInternalServerError,
 			"could not generate token",
