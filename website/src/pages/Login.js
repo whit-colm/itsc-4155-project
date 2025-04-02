@@ -1,37 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 import '../styles/Login.css';
 
-function Login({ setIsLoggedIn }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    // Implement login logic here
-    console.log('Logged in:', { username, password });
-    setIsLoggedIn(true);
+function Login() {
+  const handleGitHubLogin = () => {
+    window.location.href = '/api/auth/github/login';
   };
 
   return (
     <div className="login-container">
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
-          required
+      <h1>Sign in with GitHub</h1>
+      <button onClick={handleGitHubLogin} className="github-login-button">
+        <img
+          src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+          alt="GitHub Octocat"
+          className="github-logo"
         />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          required
-        />
-        <button type="submit">Login</button>
-      </form>
+        Sign in with GitHub
+      </button>
     </div>
   );
 }

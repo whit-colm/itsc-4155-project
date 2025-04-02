@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/Profile.css';
 
-function Profile() {
+function Profile({ jwt }) {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -9,11 +9,13 @@ function Profile() {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    // Fetch user data after login
     const fetchUserData = async () => {
       try {
-        // Replace with actual API call
-        const response = await fetch('/api/user'); // Example endpoint
+        const response = await fetch('/api/users/me', {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
         const userData = await response.json();
         setName(userData.name);
         setUsername(userData.username);
@@ -24,8 +26,10 @@ function Profile() {
       }
     };
 
-    fetchUserData();
-  }, []);
+    if (jwt) {
+      fetchUserData();
+    }
+  }, [jwt]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
