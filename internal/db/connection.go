@@ -80,9 +80,11 @@ func (p *postgres) Connect(ctx context.Context, args ...any) error {
 		}
 	}
 
+	//* first boot & startup maintnenace from here on
+
 	// The rest of this is initial db setup, inserting
 	// necessary fields into the database like cryptographic keys
-	if _, exp, err := p.getAuth(ctx); err != nil || exp.After(time.Now()) {
+	if _, _, exp, err := p.keyData(ctx); err != nil || time.Now().After(exp) {
 		const YEAR = (365 * 24 * time.Hour)
 		if _, err = p.Rotate(ctx, YEAR); err != nil {
 			errF := fmt.Errorf("rotate keys from key err: %w", err)
@@ -190,7 +192,7 @@ func (pg *postgres) Disconnect() error {
 	return nil
 }
 
-func (pg *postgres) getAuth(ctx context.Context) (crypto.Signer, time.Time, error) {
+func (pg *postgres) keyData(ctx context.Context) (ed25519.PrivateKey, ed25519.PublicKey, time.Time, error) {
 	var authExists bool
 	var jsonData []byte
 	if err := pg.db.QueryRow(ctx,
@@ -201,11 +203,11 @@ func (pg *postgres) getAuth(ctx context.Context) (crypto.Signer, time.Time, erro
 		 	 SELECT value FROM admin WHERE key = 'auth_crypto'
 		 )`,
 	).Scan(&authExists, &jsonData); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, time.Time{}, fmt.Errorf("retrieve key config: %w", err)
+		return nil, nil, time.Time{}, fmt.Errorf("retrieve key config: %w", err)
 	}
 
 	if !authExists {
-		return nil, time.Time{}, fmt.Errorf("key not found")
+		return nil, nil, time.Time{}, fmt.Errorf("key not found")
 	}
 
 	// Keys stored in b64
@@ -215,23 +217,34 @@ func (pg *postgres) getAuth(ctx context.Context) (crypto.Signer, time.Time, erro
 		Expiry  time.Time `json:"expiry"`
 	}
 	if err := json.Unmarshal(jsonData, &aux); err != nil {
-		return nil, time.Time{}, fmt.Errorf("unmarshal key: %w", err)
+		return nil, nil, time.Time{}, fmt.Errorf("unmarshal key: %w", err)
 	}
 	var privKey ed25519.PrivateKey
-	privKey, err := base64.StdEncoding.DecodeString(aux.Private)
+	var pubKey ed25519.PublicKey
+	var err error
+	privKey, err = base64.StdEncoding.DecodeString(aux.Private)
 	if err != nil {
-		return nil, time.Time{}, fmt.Errorf("decode key: %w", err)
+		return nil, nil, time.Time{}, fmt.Errorf("decode key: %w", err)
 	}
-	return privKey, aux.Expiry, nil
+	pubKey, err = base64.StdEncoding.DecodeString(aux.Public)
+	if err != nil {
+		return nil, nil, time.Time{}, fmt.Errorf("decode key: %w", err)
+	}
+	return privKey, pubKey, aux.Expiry, nil
 }
 
-func (pg *postgres) Key(ctx context.Context) (crypto.Signer, error) {
-	sig, _, err := pg.getAuth(ctx)
-	return sig, err
+func (pg *postgres) KeyPair(ctx context.Context) (crypto.PublicKey, crypto.Signer, error) {
+	priv, pub, _, err := pg.keyData(ctx)
+	return pub, priv, err
+}
+
+func (pg *postgres) Public(ctx context.Context) (crypto.PublicKey, error) {
+	_, pub, _, err := pg.keyData(ctx)
+	return pub, err
 }
 
 func (pg *postgres) Expiry(ctx context.Context) (time.Time, error) {
-	_, exp, err := pg.getAuth(ctx)
+	_, _, exp, err := pg.keyData(ctx)
 	return exp, err
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -35,6 +36,13 @@ func (u *userRepository) Create(ctx context.Context, t *model.User) error {
 	defer tx.Rollback(ctx)
 
 	handle, discriminator := t.Username.Components()
+	// Generate valid discriminator if using a zero-value
+	if discriminator == 0 && !slices.Contains(model.ReservedHandles, handle) {
+		discriminator, err = u.findDiscriminator(ctx, handle)
+		if err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
+	}
 
 	if _, err = tx.Exec(ctx,
 		`INSERT INTO users (id, github_id, display_name, handle,
@@ -43,7 +51,7 @@ func (u *userRepository) Create(ctx context.Context, t *model.User) error {
 		t.ID, t.GithubID, t.DisplayName, handle, discriminator,
 		t.Email, t.Avatar, t.Admin,
 	); err != nil {
-		return fmt.Errorf("failed to insert user: %w", err)
+		return fmt.Errorf("create user: %w", err)
 	}
 
 	return tx.Commit(ctx)
@@ -81,14 +89,14 @@ func (u *userRepository) ExistsByGithubID(ctx context.Context, ghid string) (exi
 	return
 }
 
-// GetByGithubID implements repository.UserManager.
-func (u *userRepository) GetByGithubID(ctx context.Context, ghid string) (*model.User, error) {
+func (u *userRepository) getByColumn(ctx context.Context, col, match string) (*model.User, error) {
 	var user model.User
-
 	var handle string
-	var discriminator uint16
-	if err := u.db.QueryRow(ctx,
-		`SELECT 
+	var discriminator int16
+
+	// This is **STUPIDLY** dangerous, and I only use it here like I do
+	// because it's not used externally.
+	query := fmt.Sprintf(`SELECT 
 			 u.id,
 			 COALESCE(u.github_id, ''),
 			 COALESCE(u.display_name, u.handle),
@@ -99,77 +107,12 @@ func (u *userRepository) GetByGithubID(ctx context.Context, ghid string) (*model
 			 u.avatar,
 		 	 u.superuser
 		 FROM users u
-		 WHERE u.github_id = $1
+		 WHERE %v = $1
 		 GROUP BY u.id`,
-		ghid,
-	).Scan(&user.ID, &user.GithubID, &user.DisplayName, &user.Pronouns,
-		&handle, &discriminator, &user.Email, &user.Avatar, &user.Admin,
-	); err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-
-	user.Username = model.Username{}
-	return &user, nil
-}
-
-// GetByID implements repository.UserManager.
-func (u *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
-	var user model.User
-
-	var handle string
-	var discriminator int16
+		col,
+	)
 	if err := u.db.QueryRow(ctx,
-		`SELECT 
-			 u.id,
-			 u.github_id,
-			 u.display_name,
-			 u.pronouns,
-			 u.handle,
-			 u.discriminator,
-			 u.email,
-			 u.avatar,
-		 	 u.superuser
-		 FROM users u
-		 WHERE u.id = $1
-		 GROUP BY u.id`,
-		id,
-	).Scan(&user.ID, &user.GithubID, &user.DisplayName, &user.Pronouns,
-		&handle, &discriminator, &user.Email, &user.Avatar, &user.Admin,
-	); err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-
-	if uname, err := model.UsernameFromComponents(
-		handle, int(discriminator),
-	); err != nil {
-		return nil, fmt.Errorf("generate username: %w", err)
-	} else {
-		user.Username = uname
-	}
-	return &user, nil
-}
-
-// GetByUserHandle implements repository.UserManager.
-func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (*model.User, error) {
-	var user model.User
-
-	var handle string
-	var discriminator int16
-	if err := u.db.QueryRow(ctx,
-		`SELECT 
-			 u.id,
-			 u.github_id,
-			 u.display_name,
-			 u.pronouns,
-			 u.handle,
-			 u.discriminator,
-			 u.email,
-			 u.avatar,
-		 	 u.superuser
-		 FROM users u
-		 WHERE (u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0')) = $1
-		 GROUP BY u.id`,
-		username,
+		query, match,
 	).Scan(&user.ID, &user.GithubID, &user.DisplayName, &user.Pronouns,
 		&handle, &discriminator, &user.Email, &user.Avatar, &user.Admin,
 	); err != nil {
@@ -182,6 +125,21 @@ func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (
 		user.Username = uname
 	}
 	return &user, nil
+}
+
+// GetByGithubID implements repository.UserManager.
+func (u *userRepository) GetByGithubID(ctx context.Context, ghid string) (*model.User, error) {
+	return u.getByColumn(ctx, "u.github_id", ghid)
+}
+
+// GetByID implements repository.UserManager.
+func (u *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
+	return u.getByColumn(ctx, "u.id", id.String())
+}
+
+// GetByUserHandle implements repository.UserManager.
+func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (*model.User, error) {
+	return u.getByColumn(ctx, "(u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0'))", username)
 }
 
 // Search implements repository.UserManager.

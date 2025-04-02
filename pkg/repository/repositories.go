@@ -46,7 +46,8 @@ type CRUDmanager[T any] interface {
 }
 
 type AuthManager interface {
-	Key(ctx context.Context) (crypto.Signer, error)
+	KeyPair(ctx context.Context) (crypto.PublicKey, crypto.Signer, error)
+	Public(ctx context.Context) (crypto.PublicKey, error)
 	Expiry(ctx context.Context) (time.Time, error)
 	Rotate(ctx context.Context, ttl time.Duration) (crypto.Signer, error)
 }

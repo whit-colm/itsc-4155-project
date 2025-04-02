@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
@@ -16,12 +17,11 @@ func wrap(ep func(*gin.Context) (int, string, error)) func(*gin.Context) {
 			c.Error(err)
 		}
 		if status >= 400 {
-			c.JSON(status, struct {
-				Summary string `json:"summary"`
-				Details string `json:"details"`
-			}{
+			// Dumb-ass function for unwrapping an error
+			// because sometimes it just! doesn't render!
+			c.JSON(status, jsonParsableError{
 				Summary: summary,
-				Details: err.Error(),
+				Details: err,
 			})
 			return
 		}
@@ -33,39 +33,64 @@ type jsonParsableError struct {
 	Details error  `json:"details"`
 }
 
+func (j jsonParsableError) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Summary string `json:"summary"`
+		Details string `json:"details"`
+	}{
+		Summary: j.Summary,
+		// I love Grust.
+		Details: func(e error) string {
+			switch e {
+			case nil:
+				return "<nil>"
+			default:
+				return e.Error()
+			}
+		}(j.Details),
+	})
+}
+
 var conf *oauth2.Config
 
 // Configure all backend endpoints
 func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) {
 	conf = c
 
+	api := router.Group("/api")
+
 	s := dataStore{rp.Store}
-	router.GET("/api/health", s.Health)
+	api.GET("/health", s.Health)
 
 	ah = authHandle{rp.User, rp.Auth}
 	var err error
-	jwtSigner, err = ah.auth.Key(context.Background())
+
+	jwtSigner.pub, jwtSigner.priv, err = rp.Auth.KeyPair(context.TODO())
+	ah.auth.KeyPair(context.Background())
 	if err != nil {
 		panic(err)
 	}
-	router.GET("/api/auth/github/login", ah.Login)
-	router.GET("/api/auth/github/callback", wrap(ah.GithubCallback))
-	router.GET("/api/auth/logout", wrap(ah.Logout)) // Only to be used by authenticated accts
+	api.GET("/auth/github/login", ah.Login)
+	api.GET("/auth/github/callback", wrap(ah.GithubCallback))
+	api.GET("/auth/logout", wrap(ah.Logout)).Use(AuthorizationJWT()) // Only to be used by authenticated accts
 
+	profile := api.Group("/user")
+	profile.Use(AuthorizationJWT())
 	uh = userHandle{rp.User, rp.Blob}
-	router.GET("/user/:id", uh.UserInfo)
-	router.GET("/user/me", uh.AccountInfo) // Only to be used by authenticated accts
-	router.DELETE("/user/me", uh.Delete)   // Only to be used by authenticated accts
+	profile.GET("/:id", wrap(uh.UserInfo))
+	profile.GET("/me", wrap(uh.AccountInfo)) // Only to be used by authenticated accts
+	profile.PATCH("/me", uh.Update)          // Only to be used by authenticated accts
+	profile.DELETE("/me", uh.Delete)         // Only to be used by authenticated accts
 
 	bh = bookHandle{rp.Book}
-	router.GET("/api/books", bh.GetBooks)
-	router.POST("/api/books/new", bh.AddBook)
-	router.GET("/api/books/:id", bh.GetBookByID)
-	router.GET("/api/books/isbn/:isbn", bh.GetBookByISBN)
+	api.GET("/books", bh.GetBooks)
+	api.POST("/books/new", bh.AddBook)
+	api.GET("/books/:id", bh.GetBookByID)
+	api.GET("/books/isbn/:isbn", bh.GetBookByISBN)
 
 	lh = blobHandle{rp.Blob}
-	router.GET("/api/blob/:id", lh.GetDecoded)
-	router.GET("/api/blob/:id/object", lh.GetRaw)
-	router.POST("/api/blob/new", lh.New)             // Only to be used by site admin or system itself
-	router.DELETE("/api/blob/delete/:id", lh.Delete) // Only to be used by site admin or system itself
+	api.GET("/blob/:id", lh.GetDecoded)
+	api.GET("/blob/:id/object", lh.GetRaw)
+	api.POST("/blob/new", lh.New)             // Only to be used by site admin or system itself
+	api.DELETE("/blob/delete/:id", lh.Delete) // Only to be used by site admin or system itself
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base32"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -34,12 +35,49 @@ func init() {
 }
 
 // Handle for the signed-in user
-func (h *userHandle) AccountInfo(c *gin.Context) {
-	panic("unimplemented!")
+func (h *userHandle) AccountInfo(c *gin.Context) (int, string, error) {
+	id, err := ginContextUserID(c)
+	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusInternalServerError,
+			"issue parsing ID from context",
+			fmt.Errorf("get current user: %w", err)
+	} else if errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusUnauthorized,
+			"you must be logged in to access this page",
+			fmt.Errorf("get current user: %w", err)
+	}
+	u, err := h.repo.GetByID(c.Request.Context(), id)
+	if errors.Is(err, repository.ErrorNotFound) {
+		return http.StatusNotFound,
+			"could not find user with ID",
+			fmt.Errorf("get current user: %w", err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"unknown error looking up user",
+			fmt.Errorf("get current user: %w", err)
+	}
+	c.JSON(http.StatusOK, u)
+	return http.StatusOK, "", nil
 }
 
 // Handle for other users,
-func (h *userHandle) UserInfo(c *gin.Context) {
+func (h *userHandle) UserInfo(c *gin.Context) (int, string, error) {
+	paramId, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return http.StatusBadRequest,
+			"unable to parse parameter UUID",
+			fmt.Errorf("user info: %w", err)
+	}
+	userId, err := ginContextUserID(c)
+	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusInternalServerError,
+			"issue parsing ID from context",
+			fmt.Errorf("get current user: %w", err)
+	}
+	if paramId == userId {
+		// TODO: Make less static.
+		c.Redirect(http.StatusFound, "/api/user/me")
+	}
 	panic("unimplemented!")
 }
 
@@ -82,6 +120,10 @@ func (h *userHandle) Delete(c *gin.Context) {
 	}
 	// Try to delete but we don't really care tbh
 	h.blob.Delete(c.Request.Context(), uuid.Nil)
+}
+
+func (h *userHandle) Update(ctx *gin.Context) {
+	panic("unimplemented")
 }
 
 // Not an endpoint to be exposed directly!!!
