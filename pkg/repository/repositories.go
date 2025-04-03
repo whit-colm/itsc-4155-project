@@ -14,12 +14,13 @@ import (
 //
 // TODO: I don't like this.
 type Repository struct {
-	Store  StoreManager
-	Auth   AuthManager
-	User   UserManager
-	Author AuthorManager
-	Book   BookManager
-	Blob   BlobManager
+	Store   StoreManager
+	Auth    AuthManager
+	User    UserManager
+	Author  AuthorManager
+	Book    BookManager
+	Blob    BlobManager
+	Comment CommentManager
 }
 
 type StoreManager interface {
