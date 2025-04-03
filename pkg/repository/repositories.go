@@ -85,6 +85,7 @@ type AuthorManager interface {
 type UserManager interface {
 	CRUDmanager[model.User]
 	Searcher[model.User]
+	//Permissions(ctx context.Context, user *model.User) int
 	GetByGithubID(ctx context.Context, ghid string) (*model.User, error)
 	ExistsByGithubID(ctx context.Context, ghid string) (bool, error)
 	GetByUserHandle(ctx context.Context, handle string) (*model.User, error)

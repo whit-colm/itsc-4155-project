@@ -13,33 +13,44 @@ import logo from './logo.png';
 function App() {
   const [jwt, setJwt] = useState(null);
 
+  const getCookie = (name) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  };
+
   useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem('jwt');
+    const validateToken = async () => {
+      const token = getCookie('jwt');
       if (token) {
-        setJwt(token);
         try {
           const response = await fetch('/api/users/me', {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           });
-          if (response.status === 401) {
-            localStorage.removeItem('jwt');
+          if (response.status === 200) {
+            setJwt(token);
+          } else if (response.status === 401) {
+            document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; // Clear cookie
             setJwt(null);
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          console.error('Error validating token:', error);
         }
       }
     };
 
-    fetchUserData();
+    validateToken();
+
+    const interval = setInterval(validateToken, 5 * 60 * 1000); // Validate every 5 minutes
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt');
-    setJwt(null);
+    document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; // Clear cookie
+    setJwt(null); // Clear JWT from state
   };
 
   return (

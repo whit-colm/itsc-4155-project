@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "cra-template": "^1.2.0",
+    "crypto-js": "^4.2.0",
+    "hi-base32": "^0.5.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.5",
@@ -43,8 +45,8 @@
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
-    "jest": "^27.5.1",
-    "identity-obj-proxy": "^3.0.0"
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^27.5.1"
   },
   "jest": {
     "moduleNameMapper": {
