@@ -68,6 +68,7 @@ type BookManager interface {
 	CRUDmanager[model.Book]
 	Searcher[model.Book]
 	GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.UUID, *model.Book, error)
+	Authors(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error)
 }
 
 type BookSummaryManager interface {
@@ -78,7 +79,7 @@ type BookSummaryManager interface {
 type AuthorManager interface {
 	CRUDmanager[model.Author]
 	Searcher[model.Author]
-	GetByBook(ctx context.Context, book model.Book) (*model.Author, error)
+	Books(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error)
 }
 
 type UserManager interface {
@@ -87,4 +88,10 @@ type UserManager interface {
 	GetByGithubID(ctx context.Context, ghid string) (*model.User, error)
 	ExistsByGithubID(ctx context.Context, ghid string) (bool, error)
 	GetByUserHandle(ctx context.Context, handle string) (*model.User, error)
+	UserComments(ctx context.Context)
+}
+
+type CommentManager interface {
+	CRUDmanager[model.Comment]
+	GetBookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error)
 }
