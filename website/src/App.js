@@ -14,27 +14,31 @@ function App() {
   const [jwt, setJwt] = useState(null);
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const validateToken = async () => {
       const token = localStorage.getItem('jwt');
       if (token) {
-        setJwt(token);
         try {
           const response = await fetch('/api/users/me', {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           });
-          if (response.status === 401) {
+          if (response.status === 200) {
+            setJwt(token);
+          } else if (response.status === 401) {
             localStorage.removeItem('jwt');
             setJwt(null);
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          console.error('Error validating token:', error);
         }
       }
     };
 
-    fetchUserData();
+    validateToken();
+
+    const interval = setInterval(validateToken, 5 * 60 * 1000); // Validate every 5 minutes
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {

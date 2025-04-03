@@ -1,10 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import '../styles/Login.css';
 
 function Login() {
   const handleGitHubLogin = () => {
     window.location.href = '/api/auth/github/login';
   };
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+      localStorage.setItem('jwt', token); // Token is stored in local storage
+      window.location.href = '/'; // Redirect to the homepage or desired page
+    }
+  }, []);
 
   return (
     <div className="login-container">
