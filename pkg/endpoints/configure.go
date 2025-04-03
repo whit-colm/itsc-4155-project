@@ -88,17 +88,17 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	books.POST("/new", bh.AddBook)
 	books.GET("/:id", bh.GetBookByID)
 	books.GET("/isbn/:isbn", bh.GetBookByISBN)
-	books.GET(":id/reviews", ch.BookReviews)
-	// See below for
+	// See below for additional book endpoints
 
 	comments := api.Group("/comments")
 	comments.Use(AuthorizationJWT())
 	ch = commentHandle{rp.Book, rp.Comment}
-	comments.POST("/", ch.Post)
-	books.POST("/:id/reviews", ch.Post)
+	books.GET(":id/reviews", ch.BookReviews)
+	books.POST("/:id/reviews", ch.Post) // Only to be used by authenticated accts
+	comments.POST("/", ch.Post)         // Only to be used by authenticated accts
 	comments.GET("/:id", ch.Get)
-	comments.PATCH("/:id", ch.Edit)
-	comments.DELETE(":id", ch.Delete)
+	comments.PATCH("/:id", ch.Edit)   // Only to be used by authenticated accts
+	comments.DELETE(":id", ch.Delete) // Only to be used by authenticated accts
 
 	blob := api.Group("/blob")
 	lh = blobHandle{rp.Blob}
