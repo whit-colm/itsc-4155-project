@@ -1,10 +1,12 @@
 CREATE TABLE blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+    metadata JSONB,
     value BYTEA COMPRESSION LZ4
 );
 
 CREATE UNLOGGED TABLE blobs_cache (
     id UUID PRIMARY KEY REFERENCES blobs(id) ON DELETE CASCADE,
+    metadata JSONB,
     value BYTEA,
     expires_at TIMESTAMPTZ NOT NULL
 );
@@ -42,7 +44,7 @@ FOR EACH ROW EXECUTE FUNCTION clear_blobs_cache ();
 -- It returns the BYTEA value from the cache or main table
 CREATE OR REPLACE FUNCTION get_blob(
     p_id UUID
-) RETURNS BYTEA AS $$
+) RETURNS RECORD AS $$
 DECLARE
     v_blob BYTEA;
     v_cached RECORD;
@@ -70,12 +72,12 @@ BEGIN
     END IF;
 
     -- try to find the item in the cache
-    SELECT * INTO v_cached FROM blobs_cache WHERE id = p_id;
+    SELECT (id, metadata, value) INTO v_cached FROM blobs_cache WHERE id = p_id;
     IF FOUND THEN
         UPDATE blobs_cache
         SET expires_at = now () + v_cache_ttl
         WHERE id = p_id;
-        RETURN v_cached.value;
+        RETURN v_cached;
     ELSE
         -- If not in cache, fetch from main table
         SELECT value INTO v_blob FROM blobs WHERE id = p_id;

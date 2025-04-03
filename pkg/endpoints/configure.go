@@ -88,9 +88,10 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	api.GET("/books/:id", bh.GetBookByID)
 	api.GET("/books/isbn/:isbn", bh.GetBookByISBN)
 
+	blob := api.Group("/blob")
 	lh = blobHandle{rp.Blob}
-	api.GET("/blob/:id", lh.GetDecoded)
-	api.GET("/blob/:id/object", lh.GetRaw)
-	api.POST("/blob/new", lh.New)             // Only to be used by site admin or system itself
-	api.DELETE("/blob/delete/:id", lh.Delete) // Only to be used by site admin or system itself
+	blob.GET("/:id", lh.GetDecoded)
+	blob.GET("/:id/object", lh.GetRaw)
+	blob.POST("/new", lh.New)            // Only to be used by site admin or system itself
+	blob.DELETE("/:id", wrap(lh.Delete)) // Only to be used by site admin or system itself
 }
