@@ -13,9 +13,16 @@ import logo from './logo.png';
 function App() {
   const [jwt, setJwt] = useState(null);
 
+  const getCookie = (name) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  };
+
   useEffect(() => {
     const validateToken = async () => {
-      const token = localStorage.getItem('jwt');
+      const token = getCookie('jwt');
       if (token) {
         try {
           const response = await fetch('/api/users/me', {
@@ -26,7 +33,7 @@ function App() {
           if (response.status === 200) {
             setJwt(token);
           } else if (response.status === 401) {
-            localStorage.removeItem('jwt');
+            document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; // Clear cookie
             setJwt(null);
           }
         } catch (error) {
@@ -42,8 +49,8 @@ function App() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('jwt');
-    setJwt(null);
+    document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; // Clear cookie
+    setJwt(null); // Clear JWT from state
   };
 
   return (

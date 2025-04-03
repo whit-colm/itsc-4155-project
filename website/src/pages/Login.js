@@ -10,7 +10,7 @@ function Login() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     if (token) {
-      localStorage.setItem('jwt', token); // Token is stored in local storage
+      document.cookie = `jwt=${token}; path=/; secure; HttpOnly; SameSite=Strict`; // Store token in a secure cookie
       window.location.href = '/'; // Redirect to the homepage or desired page
     }
   }, []);
