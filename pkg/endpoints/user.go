@@ -101,7 +101,7 @@ func (h *userHandle) Delete(c *gin.Context) {
 		c.JSON(http.StatusForbidden,
 			jsonParsableError{
 				Summary: "Invalid deletion code, are you sure you want to do this?",
-				Details: fmt.Errorf("expected: `%s`; received: `%s`",
+				Details: fmt.Errorf("deletion code expected `%s`, received `%s`",
 					matches,
 					code),
 			},

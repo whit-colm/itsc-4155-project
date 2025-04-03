@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
@@ -23,6 +24,6 @@ func (b *blobHandle) New(c *gin.Context) {
 	panic("unimplemented")
 }
 
-func (b *blobHandle) Delete(c *gin.Context) {
+func (b *blobHandle) Delete(c *gin.Context) (int, string, error) {
 	panic("unimplemented")
 }
