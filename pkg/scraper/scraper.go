@@ -6,10 +6,10 @@ import (
 	"io"
 	"net/http"
 	"time"
-
+	"context"
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 )
 
@@ -120,46 +120,11 @@ func extractISBN(identifiers []Identifier) []model.ISBN {
     return isbns
 }
 
-
-var db *sqlx.DB
-
-// Connect to the database
-func InitDB(dataSourceName string) error {
-	var err error
-	db, err = sqlx.Connect("postgres", dataSourceName)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database: %v", err)
-	}
-	return nil
-}
-
 // StoreBook saves the data into the database
-func StoreBook(book *model.Book) error {
-	var publishedTime time.Time
-	if !book.Published.IsZero() {
-		publishedTime = time.Date(
-			book.Published.Year, 
-			time.Month(book.Published.Month), 
-			book.Published.Day, 
-			0, 0, 0, 0, 
-			time.UTC,
-		)
-	}
-
-	query := `
-	INSERT INTO books (id, title, author, published, isbn)
-	VALUES ($1, $2, $3, $4, $5)
-	ON CONFLICT (isbn) DO NOTHING;
-	`
-
-	isbn := ""
-	if len(book.ISBNs) > 0 {
-		isbn = book.ISBNs[0].String()
-	}
-
-	_, err := db.Exec(query, book.ID, book.Title, book.Author, publishedTime, isbn)
+func StoreBook(ctx context.Context, book *model.Book, bookManager repository.BookManager) error {
+	err := bookManager.Create(ctx, book)
 	if err != nil {
-		return fmt.Errorf("failed to insert book: %v", err)
+		return fmt.Errorf("failed to store book: %v", err)
 	}
 	return nil
 }

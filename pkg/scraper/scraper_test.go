@@ -2,14 +2,11 @@ package scraper
 
 import (
 	"testing"
-
-	"cloud.google.com/go/civil"
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-	"github.com/whit-colm/itsc-4155-project/pkg/model"
+	
 )
 
 
@@ -61,51 +58,3 @@ func TestExtractISBN(t *testing.T) {
 	assert.Equal(t, "316148410X", isbns[1].String(), "Second ISBN mismatch")
 }
 
-// Test to setup and initialize the database
-func setupTestDB(t *testing.T) {
-	var err error
-	db, err = sqlx.Connect("sqlite3", ":memory:") 
-	if err != nil {
-		t.Fatalf("Failed to connect to test DB: %v", err)
-	}
-
-	schema := `
-	CREATE TABLE books (
-		id UUID PRIMARY KEY,
-		title TEXT,
-		author TEXT,
-		published DATE,
-		isbn TEXT UNIQUE
-	);`
-
-	if _, err := db.Exec(schema); err != nil {
-		t.Fatalf("Failed to create schema: %v", err)
-	}
-}
-
-// Test to store a book and check if it is correctly inserted
-func TestStoreBook(t *testing.T) {
-	setupTestDB(t)
-
-	book := &model.Book{
-		ID:        uuid.New(),
-		Title:     "Test Book",
-		Author:    "John Doe",
-		Published: civil.Date{Year: 2020, Month: 1, Day: 15},
-		ISBNs:     []model.ISBN{model.MustNewISBN("9783161484100", model.ISBN13)},
-	}
-
-	if err := StoreBook(book); err != nil {
-		t.Fatalf("Failed to store book: %v", err)
-	}
-
-	var count int
-	err := db.Get(&count, "SELECT COUNT(*) FROM books WHERE title = ?", book.Title)
-	if err != nil {
-		t.Fatalf("Failed to query database: %v", err)
-	}
-
-	if count != 1 {
-		t.Errorf("Expected 1 book, found %d", count)
-	}
-}
