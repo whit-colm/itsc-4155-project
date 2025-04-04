@@ -125,8 +125,7 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 
 	blob := api.Group("/blob")
 	lh = blobHandle{rp.Blob}
-	blob.GET("/:id", wrap(lh.GetAsJSON))
-	blob.GET("/:id/object", wrap(lh.GetRaw))
+	blob.GET("/:id", wrap(lh.GetRaw))
 	blob.POST("/new", wrap(lh.New)).Use(AuthorizationJWT(), UserPermissions())      // Only to be used by site admins or system itself
 	blob.DELETE("/:id", wrap(lh.Delete)).Use(AuthorizationJWT(), UserPermissions()) // Only to be used by site admins or system itself
 }

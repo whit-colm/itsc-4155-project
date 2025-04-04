@@ -44,10 +44,13 @@ FOR EACH ROW EXECUTE FUNCTION clear_blobs_cache ();
 -- It returns the BYTEA value from the cache or main table
 CREATE OR REPLACE FUNCTION get_blob(
     p_id UUID
-) RETURNS RECORD AS $$
+) RETURNS TABLE (
+    id UUID,
+    metadata JSONB,
+    value BYTEA
+) AS $$
 DECLARE
-    v_blob BYTEA;
-    v_cached RECORD;
+    v_record RECORD;
     v_new_size BIGINT;
     v_current_size BIGINT;
     v_deleted_size BIGINT;
@@ -55,9 +58,9 @@ DECLARE
     v_cache_ttl INTERVAL;
 BEGIN
     -- load necessary values from admin table
-    SELECT (value->>'maxSize')::BIGINT, (value->>'ttl')::INTERVAL
+    SELECT (a.value->>'maxSize')::BIGINT, (a.value->>'ttl')::INTERVAL
     INTO v_max_cache, v_cache_ttl
-    FROM admin
+    FROM admin a
     WHERE key = 'blobs_cache_config';
 
     IF NOT FOUND THEN 
@@ -72,28 +75,28 @@ BEGIN
     END IF;
 
     -- try to find the item in the cache
-    SELECT (id, metadata, value) INTO v_cached FROM blobs_cache WHERE id = p_id;
+    SELECT bc.id, bc.metadata, bc.value INTO v_record FROM blobs_cache bc WHERE bc.id = p_id;
     IF FOUND THEN
-        UPDATE blobs_cache
-        SET expires_at = now () + v_cache_ttl
-        WHERE id = p_id;
-        RETURN v_cached;
+        UPDATE blobs_cache bc
+        SET expires_at = NOW() + v_cache_ttl
+        WHERE bc.id = p_id;
+        RETURN QUERY SELECT v_record.id, v_record.metadata, v_record.value;
     ELSE
         -- If not in cache, fetch from main table
-        SELECT value INTO v_blob FROM blobs WHERE id = p_id;
+        SELECT b.id, b.metadata, b.value INTO v_record FROM blobs b WHERE b.id = p_id;
         IF NOT FOUND THEN
-            RETURN NULL; -- Doesn't exist
+            RETURN QUERY SELECT NULL, NULL, NULL; -- Doesn't exist
         END IF;
 
         -- Now we have to determine how we fit things into the cache
-        v_new_size := octet_length(v_blob);
+        v_new_size := octet_length(v_record.value);
         -- If the new object is too big (>60% of cache) then we don't 
         -- try to store it, instead just return it and be done
         if v_new_size > v_max_cache * 6 / 10 THEN
-            RETURN v_blob;
+            RETURN QUERY SELECT v_record.id, v_record.metadata, v_record.value;
         END IF;
 
-        SELECT COALESCE(SUM(octet_length(val)), 0) INTO v_current_size FROM blobs_cache;
+        SELECT COALESCE(SUM(octet_length(v_record.value)), 0) INTO v_current_size FROM blobs_cache;
 
         -- While adding the new object would exceed the maximum cache
         -- size, we delete entries based on LRU.
@@ -110,10 +113,10 @@ BEGIN
         END LOOP;
 
         -- Insert the new cache entry with fresh expiration timestamp
-        INSERT INTO blobs_cache (id, value, expires_at)
-        VALUES (p_id, v_blob, now() + v_cache_ttl);
+        INSERT INTO blobs_cache (id, metadata, value, expires_at)
+        VALUES (v_record.id, v_record.metadata, v_record.value, NOW() + v_cache_ttl);
         
-        RETURN v_blob;
+        RETURN QUERY SELECT v_record.id, v_record.metadata, v_record.value;
     END IF;
 END;
 $$ LANGUAGE plpgsql;

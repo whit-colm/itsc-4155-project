@@ -3,6 +3,7 @@ package db
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -38,9 +39,9 @@ func (b *blobRepository) Create(ctx context.Context, t *model.Blob) error {
 	}
 
 	if _, err = tx.Exec(ctx,
-		`INSERT INTO blobs (id, value)
-		 VALUES ($1, $2)`,
-		t.ID, data,
+		`INSERT INTO blobs (id, metadata, value)
+		 VALUES ($1, $2, $3)`,
+		t.ID, t.Metadata, data,
 	); err != nil {
 		return fmt.Errorf("insert into blobs: %w", err)
 	}
@@ -72,16 +73,22 @@ func (b *blobRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // This is mostly just a wrapper for the custom cache system
 // implemented in the database itself.
 func (b *blobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Blob, error) {
+	var blob model.Blob
+	var metadata []byte
 	var data []byte
 
 	if err := b.db.QueryRow(ctx,
-		`SELECT get_blob($1)`,
+		`SELECT id, metadata, value FROM get_blob($1)`,
 		id,
-	).Scan(&data); err != nil {
+	).Scan(&blob.ID, &metadata, &data); err != nil {
+		return nil, fmt.Errorf("receive blob: %w", err)
+	}
+	blob.Content = bytes.NewReader(data)
+	if err := json.Unmarshal(metadata, &blob.Metadata); err != nil {
 		return nil, fmt.Errorf("receive blob: %w", err)
 	}
 
-	return &model.Blob{ID: id, Content: bytes.NewReader(data)}, nil
+	return &blob, nil
 }
 
 // Necessary to implement repository.BlobManager.
