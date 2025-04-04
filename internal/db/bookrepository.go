@@ -123,7 +123,7 @@ func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...st
 }
 
 // Update implements repository.BookManager.
-func (b *bookRepository) Update(ctx context.Context, t *model.Book) (*model.Book, error) {
+func (b *bookRepository) Update(ctx context.Context, fromID uuid.UUID, to *model.Book) (*model.Book, error) {
 	panic("unimplemented")
 }
 

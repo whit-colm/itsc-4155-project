@@ -46,7 +46,7 @@ func (a *authorRepository) Create(ctx context.Context, author *model.Author) err
 }
 
 // Update implements repository.BookManager.
-func (b *authorRepository) Update(ctx context.Context, t *model.Author) (*model.Author, error) {
+func (b *authorRepository) Update(ctx context.Context, fromID uuid.UUID, to *model.Author) (*model.Author, error) {
 	panic("unimplemented")
 }
 
