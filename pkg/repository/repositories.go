@@ -68,7 +68,7 @@ type BlobManager interface {
 type BookManager interface {
 	CRUDmanager[model.Book]
 	Searcher[model.Book]
-	GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.UUID, *model.Book, error)
+	GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error)
 	Authors(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error)
 }
 

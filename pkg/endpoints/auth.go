@@ -133,19 +133,20 @@ func AuthorizationJWT() gin.HandlerFunc {
 // has been done before hand and a valid user ID stored in the gontext
 // map as `"userID"`
 func UserPermissions() gin.HandlerFunc {
+	const errorCaller string = "check user permissions"
 	return func(c *gin.Context) {
 		id, err := ginContextUserID(c)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized,
 				jsonParsableError{
 					Summary: "Issue parsing ID from context, are you sure you're authenticated?",
-					Details: fmt.Errorf("check permissions: %w", err),
+					Details: fmt.Errorf("%v: %w", errorCaller, err),
 				})
 			return
 		}
 		admin, err := ah.repo.Permissions(c.Request.Context(), id)
 		if err != nil {
-			h, s, d := wrapDatastoreError(err, "check permissions")
+			h, s, d := wrapDatastoreError(errorCaller, err)
 			c.AbortWithStatusJSON(h, jsonParsableError{s, d})
 			return
 		}

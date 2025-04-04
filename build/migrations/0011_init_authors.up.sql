@@ -1,8 +1,8 @@
 -- Create authors table
 CREATE TABLE authors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-    familyname TEXT NOT NULL,
-    givenname TEXT NOT NULL,
+    family_name TEXT NOT NULL,
+    given_name TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -11,5 +11,5 @@ CREATE TABLE authors (
 -- Indexes --
 -------------
 
-CREATE INDEX i_author_full_name ON authors (givenname, familyname);
-CREATE INDEX i_author_family_name ON authors (familyname);
+CREATE INDEX i_author_full_name ON authors (given_name, family_name);
+CREATE INDEX i_author_family_name ON authors (family_name);

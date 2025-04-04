@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
@@ -24,6 +25,10 @@ func newBookRepository(psql *postgres) repository.BookManager {
 	return &bookRepository{db: psql.db}
 }
 
+func (b *bookRepository) Authors(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error) {
+	panic("unimplemented")
+}
+
 // Create implements BookRepositoryManager.
 func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	tx, err := b.db.Begin(ctx)
@@ -33,27 +38,88 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO books (id, title, author_id, published)
-		 VALUES ($1, $2, $3, $4)`,
-		book.ID, book.Title, book.AuthorID, book.Published.In(time.UTC),
+		`INSERT INTO books (id, title, published)
+		 VALUES ($1, $2, $3)`,
+		book.ID, book.Title, book.Published.In(time.UTC),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to insert book: %w", err)
+		return fmt.Errorf("create book: %w", err)
 	}
 
+	rows := [][]interface{}{}
 	for _, isbn := range book.ISBNs {
-		_, err := tx.Exec(ctx,
-			`insert INTO isbns (isbn, book_id, isbn_type)
-			 VALUES ($1, $2, $3)
-			 ON CONFLICT (isbn) DO NOTHING`,
-			isbn.String(), book.ID, isbn.Version().String(),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert ISBN %s: %w", isbn, err)
-		}
+		row := []interface{}{isbn.String(), book.ID, isbn.Version().String()}
+		rows = append(rows, row)
+	}
+	if _, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"isbns"},
+		[]string{"isbn", "book_id", "isbn_type"},
+		pgx.CopyFromRows(rows),
+	); err != nil {
+		return fmt.Errorf("create book: %w", err)
+	}
+
+	rows = [][]interface{}{}
+	for _, aID := range book.AuthorIDs {
+		row := []interface{}{book.ID, aID}
+		rows = append(rows, row)
+	}
+	if _, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"books_authors"},
+		[]string{"book_id", "author_id"},
+		pgx.CopyFromRows(rows),
+	); err != nil {
+		return fmt.Errorf("create book: %w", err)
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...string) (*model.Book, error) {
+	var book model.Book
+	var published time.Time
+	var isbns []byte
+	var authorIDs []byte
+
+	query := fmt.Sprintf(`SELECT 
+			 b.id, 
+			 b.title, 
+			 b.published,
+			 COALESCE(
+				 json_agg(a.id) FILTER (WHERE a.id IS NOT NULL),
+				 '[]'::json
+			 ),
+			 COALESCE(
+				 json_agg(json_build_object(
+					 'value', i.isbn,
+					 'type', i.isbn_type
+				 )) FILTER (WHERE i.isbn IS NOT NULL),
+				 '[]'::json
+			 )
+		 FROM books b
+		 LEFT JOIN books_authors ba ON b.id = ba.book_id
+		 LEFT JOIN isbns i ON b.id = i.book_id
+		 WHERE %v,
+		 GROUP BY b.id`,
+		clause)
+	if err := b.db.QueryRow(ctx,
+		query, vals,
+	).Scan(
+		&book.ID, &book.Title, &published, &authorIDs, &isbns,
+	); err != nil {
+		return nil, fmt.Errorf("get book: %w", err)
+	}
+
+	book.Published = civil.DateOf(published)
+
+	if err := json.Unmarshal(isbns, &book.ISBNs); err != nil {
+		return nil, fmt.Errorf("get book: %w", err)
+	}
+	if err := json.Unmarshal(authorIDs, &book.AuthorIDs); err != nil {
+		return nil, fmt.Errorf("get book: %w", err)
+	}
+
+	return &book, nil
 }
 
 // Update implements repository.BookManager.
@@ -84,143 +150,15 @@ func (b *bookRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 // GetByID implements BookRepositoryManager.
 func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
-	var book model.Book
-	var published time.Time
-	var isbns []byte
-
-	if err := b.db.QueryRow(ctx,
-		`SELECT 
-			b.id, 
-			b.title, 
-			b.author_id, 
-			b.published,
-			COALESCE(
-				json_agg(json_build_object(
-					'value', i.isbn,
-					'type', i.isbn_type
-				)) FILTER (WHERE i.isbn IS NOT NULL),
-				'[]'::json
-			) AS isbns
-		FROM books b
-		LEFT JOIN isbns i ON b.id = i.book_id
-		WHERE b.id = $1
-		GROUP BY b.id`,
-		id,
-	).Scan(
-		&book.ID, &book.Title, &book.AuthorID,
-		&published, &isbns,
-	); err != nil {
-		return nil, err
-	}
-
-	book.Published = civil.DateOf(published)
-
-	if err := json.Unmarshal(isbns, &book.ISBNs); err != nil {
-		return nil, fmt.Errorf("failed to parse ISBNs: %w", err)
-	}
-
-	return &book, nil
+	return b.getWhere(ctx, "b.id = $1", id.String())
 }
 
 // GetByISBN implements BookRepositoryManager.
-func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (uuid.UUID, *model.Book, error) {
-	var book model.Book
-	var published time.Time
-	var isbns []byte
-
-	if err := b.db.QueryRow(ctx,
-		`SELECT 
-			b.id, 
-			b.title, 
-			b.author_id, 
-			b.published,
-			COALESCE(
-				json_agg(json_build_object(
-					'value', i.isbn,
-					'type', i.isbn_type
-				)) FILTER (WHERE i.isbn IS NOT NULL),
-				'[]'::json
-			) AS isbns
-		FROM books b
-		LEFT JOIN isbns i ON b.id = i.book_id
-		WHERE EXISTS (
-			SELECT * FROM isbns 
-			WHERE isbn = $1 AND book_id = b.id
-		)
-		GROUP BY b.id`,
-		isbn,
-	).Scan(
-		&book.ID, &book.Title, &book.AuthorID,
-		&published, &isbns,
-	); err != nil {
-		return uuid.Nil, nil, err
-	}
-
-	book.Published = civil.DateOf(published)
-
-	if err := json.Unmarshal(isbns, &book.ISBNs); err != nil {
-		return uuid.Nil, nil, fmt.Errorf("failed to parse ISBNs: %w", err)
-	}
-
-	return book.ID, &book, nil
+func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
+	return b.getWhere(ctx, "i.isbn = $1", isbn.String())
 }
 
 // Search implements BookRepositoryManager.
 func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
-	type aux struct {
-		ID        uuid.UUID
-		Title     string
-		Author    uuid.UUID
-		Published time.Time
-		ISBNs     []byte
-	}
-	var auxs []aux
-
-	rows, err := b.db.Query(ctx,
-		`SELECT 
-			b.id, 
-			b.title, 
-			b.author_id, 
-			b.published,
-			COALESCE(
-				json_agg(json_build_object(
-					'value', i.isbn,
-					'type', i.isbn_type
-				)) FILTER (WHERE i.isbn IS NOT NULL),
-				'[]'::json
-			) AS isbns
-		FROM books b
-		LEFT JOIN isbns i ON b.id = i.book_id
-		GROUP BY b.id`)
-
-	if err != nil {
-		return []model.Book{}, err
-	}
-
-	for rows.Next() {
-		var b aux
-		rows.Scan(&b.ID, &b.Title, &b.Author, &b.Published, &b.ISBNs)
-		auxs = append(auxs, b)
-	}
-	if rows.Err() != nil {
-		return []model.Book{}, err
-	}
-
-	var books []model.Book
-
-	for _, v := range auxs {
-		var isbns []model.ISBN
-		if err := json.Unmarshal(v.ISBNs, &isbns); err != nil {
-			return []model.Book{}, err
-		}
-		books = append(books, model.Book{
-			ID:        v.ID,
-			ISBNs:     isbns,
-			Title:     v.Title,
-			AuthorID:  v.Author,
-			Published: civil.DateOf(v.Published),
-		})
-	}
-
-	return books, nil
+	panic("unimplemented")
 }

@@ -200,7 +200,7 @@ func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 
 	storedComment, err = ch.comm.Update(c.Request.Context(), &newComment)
 	if err != nil {
-		return wrapDatastoreError()
+		return wrapDatastoreError(errorCaller, err)
 	}
 	c.JSON(http.StatusOK, storedComment)
 

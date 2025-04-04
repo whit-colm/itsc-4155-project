@@ -10,6 +10,6 @@ type Book struct {
 	ID        uuid.UUID  `json:"id"`
 	ISBNs     []ISBN     `json:"isbns"`
 	Title     string     `json:"title"`
-	AuthorID  uuid.UUID  `json:"author"`
+	AuthorIDs uuid.UUIDs `json:"authors"`
 	Published civil.Date `json:"published"`
 }

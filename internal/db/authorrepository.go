@@ -21,6 +21,10 @@ func newAuthorRepository(psql *postgres) repository.AuthorManager {
 	return &authorRepository{db: psql.db}
 }
 
+func (a *authorRepository) Books(ctx context.Context, bookID uuid.UUID) ([]*model.Book, error) {
+	panic("unimplemented")
+}
+
 // Create implements repository.AuthorManager.
 func (a *authorRepository) Create(ctx context.Context, author *model.Author) error {
 	tx, err := a.db.Begin(ctx)
@@ -63,11 +67,6 @@ func (a *authorRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return tx.Commit(ctx)
-}
-
-// GetByBook implements repository.AuthorManager.
-func (a *authorRepository) GetByBook(ctx context.Context, book model.Book) (*model.Author, error) {
-	return a.GetByID(ctx, book.AuthorID)
 }
 
 // GetByID implements repository.AuthorManager.

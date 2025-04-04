@@ -55,6 +55,7 @@ func (b *blobHandle) GetRaw(c *gin.Context) (int, string, error) {
 		}
 		c.Data(http.StatusOK, o.Metadata["content-type"], bb)
 	}
+	return http.StatusOK, "", nil
 }
 
 func (b *blobHandle) GetAsJSON(c *gin.Context) (int, string, error) {

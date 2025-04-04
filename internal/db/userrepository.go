@@ -142,6 +142,10 @@ func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (
 	return u.getByColumn(ctx, "(u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0'))", username)
 }
 
+func (u *userRepository) Permissions(ctx context.Context, userID uuid.UUID) (bool, error) {
+	panic("unimplemented")
+}
+
 // Search implements repository.UserManager.
 func (u *userRepository) Search(ctx context.Context) ([]model.User, error) {
 	panic("unimplemented")
@@ -197,6 +201,13 @@ func (u *userRepository) Update(ctx context.Context, t *model.User) (*model.User
 	}
 
 	return t, tx.Commit(ctx)
+}
+
+func (u *userRepository) VotedComments(ctx context.Context, userID uuid.UUID) ([]*struct {
+	CommentID uuid.UUID
+	Vote      int
+}, error) {
+	panic("unimplemented")
 }
 
 func (u *userRepository) validateNewUsername(ctx context.Context, username string) (bool, error) {
