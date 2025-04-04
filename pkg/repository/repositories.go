@@ -86,14 +86,14 @@ type AuthorManager interface {
 type UserManager interface {
 	CRUDmanager[model.User]
 	Searcher[model.User]
-	//Permissions(ctx context.Context, user *model.User) int
+	Permissions(ctx context.Context, userID uuid.UUID) (bool, error)
 	GetByGithubID(ctx context.Context, ghid string) (*model.User, error)
 	ExistsByGithubID(ctx context.Context, ghid string) (bool, error)
 	GetByUserHandle(ctx context.Context, handle string) (*model.User, error)
-	UserComments(ctx context.Context)
 }
 
 type CommentManager interface {
 	CRUDmanager[model.Comment]
 	GetBookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error)
+	GetAuthor(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error)
 }

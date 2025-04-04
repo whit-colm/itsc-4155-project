@@ -3,6 +3,9 @@ package endpoints
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
@@ -25,6 +28,26 @@ func wrap(ep func(*gin.Context) (int, string, error)) func(*gin.Context) {
 			})
 			return
 		}
+	}
+}
+
+func wrapDatastoreError(caller string, err error) (int, string, error) {
+	if errors.Is(err, repository.ErrorNotFound) {
+		return http.StatusNotFound,
+			"Could not find resource matching given key or description",
+			fmt.Errorf("%v: %w", caller, err)
+	} else if errors.Is(err, repository.ErrorBadConnection) {
+		return http.StatusServiceUnavailable,
+			"There was an issue connecting to the datastore",
+			fmt.Errorf("%v: %w", caller, err)
+	} else if errors.Is(err, repository.ErrorBadTypecast) {
+		return http.StatusBadRequest,
+			"Could not cast given value as necessary type",
+			fmt.Errorf("%v: %w", caller, err)
+	} else {
+		return http.StatusInternalServerError,
+			"An issue occured and your request could not be completed",
+			fmt.Errorf("%v: %w", caller, err)
 	}
 }
 
@@ -72,12 +95,12 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	}
 	api.GET("/auth/github/login", ah.Login)
 	api.GET("/auth/github/callback", wrap(ah.GithubCallback))
-	api.GET("/auth/logout", wrap(ah.Logout)).Use(AuthorizationJWT()) // Only to be used by authenticated accts
 
 	profile := api.Group("/user")
 	profile.Use(AuthorizationJWT())
 	uh = userHandle{rp.User, rp.Blob}
 	profile.GET("/:id", wrap(uh.UserInfo))
+	//profile.DELETE("/:id", uh.Delete).Use(UserPermissions())
 	profile.GET("/me", wrap(uh.AccountInfo)) // Only to be used by authenticated accts
 	profile.PATCH("/me", uh.Update)          // Only to be used by authenticated accts
 	profile.DELETE("/me", uh.Delete)         // Only to be used by authenticated accts
@@ -85,7 +108,7 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	books := api.Group("/books")
 	bh = bookHandle{rp.Book}
 	books.GET("", bh.GetBooks)
-	books.POST("/new", bh.AddBook)
+	books.POST("/new", bh.AddBook).Use(AuthorizationJWT(), UserPermissions())
 	books.GET("/:id", bh.GetBookByID)
 	books.GET("/isbn/:isbn", bh.GetBookByISBN)
 	// See below for additional book endpoints
@@ -93,17 +116,17 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	comments := api.Group("/comments")
 	comments.Use(AuthorizationJWT())
 	ch = commentHandle{rp.Book, rp.Comment}
-	books.GET(":id/reviews", ch.BookReviews)
-	books.POST("/:id/reviews", ch.Post) // Only to be used by authenticated accts
-	comments.POST("/", ch.Post)         // Only to be used by authenticated accts
-	comments.GET("/:id", ch.Get)
-	comments.PATCH("/:id", ch.Edit)   // Only to be used by authenticated accts
-	comments.DELETE(":id", ch.Delete) // Only to be used by authenticated accts
+	books.GET(":id/reviews", wrap(ch.BookReviews))
+	books.POST("/:id/reviews", wrap(ch.Post)) // Only to be used by authenticated accts
+	comments.POST("/", wrap(ch.Post))         // Only to be used by authenticated accts
+	comments.GET("/:id", wrap(ch.Get))
+	comments.PATCH("/:id", wrap(ch.Edit))                                              // Only to be used by authenticated accts
+	comments.DELETE(":id", wrap(ch.Delete)).Use(AuthorizationJWT(), UserPermissions()) // Only to be used by authenticated accts (+admin functionality)
 
 	blob := api.Group("/blob")
 	lh = blobHandle{rp.Blob}
 	blob.GET("/:id", lh.GetAsJSON)
 	blob.GET("/:id/object", lh.GetRaw)
-	blob.POST("/new", lh.New)            // Only to be used by site admin or system itself
-	blob.DELETE("/:id", wrap(lh.Delete)) // Only to be used by site admin or system itself
+	blob.POST("/new", lh.New).Use(AuthorizationJWT(), UserPermissions())            // Only to be used by site admins or system itself
+	blob.DELETE("/:id", wrap(lh.Delete)).Use(AuthorizationJWT(), UserPermissions()) // Only to be used by site admins or system itself
 }
