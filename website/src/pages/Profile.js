@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/Profile.css';
 import base32 from 'hi-base32';
-import sha1 from 'crypto-js/sha1';
 import hmacSHA1 from 'crypto-js/hmac-sha1';
 
 function Profile({ jwt }) {
