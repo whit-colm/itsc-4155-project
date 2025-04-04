@@ -20,6 +20,20 @@ CREATE UNLOGGED TABLE scratchpad (
 CREATE UNIQUE INDEX i_admin_key ON admin (key);
 CREATE UNIQUE INDEX i_scratchpad_key ON scratchpad (key);
 
+-----------------------
+-- General functions --
+-----------------------
+
+-- Automatically update the `updated_at` field in a row when it is
+-- updated.
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 ----------------
 -- Protection --
 ----------------

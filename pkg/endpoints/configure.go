@@ -101,9 +101,10 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	uh = userHandle{rp.User, rp.Blob}
 	profile.GET("/:id", wrap(uh.UserInfo))
 	//profile.DELETE("/:id", uh.Delete).Use(UserPermissions())
-	profile.GET("/me", wrap(uh.AccountInfo)) // Only to be used by authenticated accts
-	profile.PATCH("/me", uh.Update)          // Only to be used by authenticated accts
-	profile.DELETE("/me", uh.Delete)         // Only to be used by authenticated accts
+	profile.GET("/me", wrap(uh.AccountInfo))         // Only to be used by authenticated accts
+	profile.PATCH("/me", wrap(uh.Update))            // Only to be used by authenticated accts
+	profile.PUT("/me/avatar", wrap(uh.UpdateAvatar)) // Only to be used by authenticated accts
+	profile.DELETE("/me", wrap(uh.Delete))           // Only to be used by authenticated accts
 
 	books := api.Group("/books")
 	bh = bookHandle{rp.Book}

@@ -31,3 +31,12 @@ CREATE UNIQUE INDEX i_users_handle_discriminator ON users
     (handle, discriminator);
 CREATE INDEX i_users_name ON users
     USING GIN (to_tsvector('english', display_name));
+
+--------------
+-- Triggers --
+--------------
+
+CREATE TRIGGER t_users_set_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();

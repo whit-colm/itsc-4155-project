@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -65,10 +63,29 @@ func (u *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	defer tx.Rollback(ctx)
 
+	var avatarID uuid.UUID
+	tx.QueryRow(ctx,
+		`SELETCT avatar FROM users u
+		 WHERE u.id = $1`,
+	).Scan(&avatarID)
+
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM users u
 		 WHERE u.id = $1`,
 		id,
+	); err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	// Don't try to delete user avatar if they don't have one
+	if avatarID == uuid.Nil {
+		return tx.Commit(ctx)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM blobs b
+		 WHERE b.id = $1`,
+		avatarID,
 	); err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
@@ -152,55 +169,51 @@ func (u *userRepository) Search(ctx context.Context) ([]model.User, error) {
 }
 
 // Update implements repository.UserManager.
-func (u *userRepository) Update(ctx context.Context, t *model.User) (*model.User, error) {
-	c, err := u.GetByID(ctx, t.ID)
+func (u *userRepository) Update(ctx context.Context, fromID uuid.UUID, to *model.User) (*model.User, error) {
+	const errorCaller string = "update user"
+	from, err := u.GetByID(ctx, fromID)
 	if err != nil {
-		return nil, fmt.Errorf("current ")
+		return nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 	tx, err := u.db.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
+		return nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 	defer tx.Rollback(ctx)
 
-	changes := generateDifferences(*c, *t)
-	if _, found := changes["id"]; found {
-		return nil, fmt.Errorf("users have different IDs")
-	}
-	// Handle special code for username
-	// This is inherently bad code because if the column names change
-	// we won't know.
-	// TODO: AWFUL code. DO NOT USE
-	if usernameAny, found := changes["username"]; found {
-		if username, cast := usernameAny.(string); !cast {
-			return nil, fmt.Errorf("username typecast: expect `string`, got `%v`",
-				reflect.TypeOf(usernameAny))
-		} else {
-			s := strings.Split(username, "#")
-			if len(s) != 2 {
-				return nil,
-					fmt.Errorf("username invalid constituent length: expect `2`, got `%d`",
-						len(s))
-			}
-			if d, err := u.findDiscriminator(ctx, s[0]); err != nil {
-				return nil, fmt.Errorf("generate new discriminator: %w", err)
-			} else {
-				changes["discriminator"] = d
-			}
-		}
-		delete(changes, "username")
+	if from.ID != to.ID {
+		return nil, fmt.Errorf("%v: users have different IDs", errorCaller)
 	}
 
-	for k, v := range changes {
-		if _, err = tx.Exec(ctx,
-			`UPDATE users SET $1 = $2 WHERE id=$3`,
-			k, v, t.ID,
-		); err != nil {
-			return nil, fmt.Errorf("update user: %w", err)
+	handle, discriminator := to.Username.Components()
+	if from.Username != to.Username {
+		if v, err := u.validateNewUsername(ctx, to.Username.String()); err != nil || !v {
+			discriminator, err = u.findDiscriminator(ctx, handle)
+			if err != nil {
+				return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			}
 		}
 	}
 
-	return t, tx.Commit(ctx)
+	if _, err = tx.Exec(ctx,
+		`UPDATE users SET (
+			 github_id,
+			 display_name,
+			 pronouns,
+			 handle,
+			 discriminator,
+			 email,
+			 avatar
+		 ) = (
+			 $2, $3, $4, $5, $6, $7, $8
+		 ) WHERE id=$1`,
+		to.ID, to.GithubID, to.DisplayName, to.Pronouns, handle,
+		discriminator, to.Email, to.Avatar,
+	); err != nil {
+		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	return to, tx.Commit(ctx)
 }
 
 func (u *userRepository) VotedComments(ctx context.Context, userID uuid.UUID) ([]*struct {
@@ -247,31 +260,4 @@ func (u *userRepository) findDiscriminator(ctx context.Context, handle string) (
 		return -1, fmt.Errorf("generate discriminator: %w", err)
 	}
 	return discriminator, nil
-}
-
-func generateDifferences[T any](t1, t2 T) map[string]any {
-	changes := make(map[string]any)
-
-	v1 := reflect.ValueOf(t1)
-	v2 := reflect.ValueOf(t2)
-
-	if v1.Kind() != reflect.Struct || v1.Type() != v2.Type() {
-		return changes
-	}
-
-	t := v1.Type()
-
-	for i := range v1.NumField() {
-		f1 := v1.Field(i).Interface()
-		f2 := v2.Field(i).Interface()
-
-		if !reflect.DeepEqual(f1, f2) {
-			tag := t.Field(i).Tag.Get("json")
-			if tag == "" {
-				return make(map[string]any)
-			}
-			changes[tag] = f2
-		}
-	}
-	return changes
 }

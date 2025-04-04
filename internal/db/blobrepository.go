@@ -94,7 +94,7 @@ func (b *blobRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Blob
 // Necessary to implement repository.BlobManager.
 // This should never be called. If it does it just creates a new blob,
 // blobs are considered immutable.
-func (b *blobRepository) Update(ctx context.Context, t *model.Blob) (*model.Blob, error) {
+func (b *blobRepository) Update(ctx context.Context, _ uuid.UUID, t *model.Blob) (*model.Blob, error) {
 	if id, err := uuid.NewV7(); err != nil {
 		return nil, fmt.Errorf("hey you shouldn't be using this method (%w)", err)
 	} else {

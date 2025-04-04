@@ -40,10 +40,10 @@ type StoreManager interface {
 // Any more complicated types should instead have their own dedicated
 // manager, which implements CRUDmanager.
 type CRUDmanager[T any] interface {
-	Create(ctx context.Context, t *T) error
-	GetByID(ctx context.Context, id uuid.UUID) (*T, error)
-	Update(ctx context.Context, t *T) (*T, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	Create(context.Context, *T) error
+	GetByID(context.Context, uuid.UUID) (*T, error)
+	Update(context.Context, uuid.UUID, *T) (*T, error)
+	Delete(context.Context, uuid.UUID) error
 }
 
 type AuthManager interface {

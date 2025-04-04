@@ -135,7 +135,7 @@ func AuthorizationJWT() gin.HandlerFunc {
 func UserPermissions() gin.HandlerFunc {
 	const errorCaller string = "check user permissions"
 	return func(c *gin.Context) {
-		id, err := ginContextUserID(c)
+		id, err := wrapGinContextUserID(c)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized,
 				jsonParsableError{
@@ -156,7 +156,7 @@ func UserPermissions() gin.HandlerFunc {
 }
 
 // Wrapper to get usable UUID type from gin context key-value store
-func ginContextUserID(c *gin.Context) (uuid.UUID, error) {
+func wrapGinContextUserID(c *gin.Context) (uuid.UUID, error) {
 	idAny, ok := c.Get("userID")
 	if !ok {
 		return uuid.Nil, errUserIDKeyNotFound

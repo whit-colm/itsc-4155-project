@@ -55,7 +55,7 @@ func (ch *commentHandle) Get(c *gin.Context) (int, string, error) {
 func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
 	const errorCaller string = "post new comment"
 	// The user ID parameter must be set.
-	userID, err := ginContextUserID(c)
+	userID, err := wrapGinContextUserID(c)
 	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusInternalServerError,
 			"issue parsing ID from context",
@@ -106,7 +106,7 @@ func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
 func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 	const errorCaller string = "edit comment"
 	// A request must be authenticated to access this page.
-	userIDParam, err := ginContextUserID(c)
+	userIDParam, err := wrapGinContextUserID(c)
 	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusInternalServerError,
 			"issue parsing ID from context",
@@ -137,7 +137,7 @@ func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 			"could not parse JSON into comment object",
 			fmt.Errorf("%s: %w", errorCaller, err)
 	} else if newComment.Deleted {
-		return http.StatusUnprocessableEntity,
+		return http.StatusBadRequest,
 			"You cannot delete a comment by editing it. use DELETE instead",
 			fmt.Errorf("%s: attempting to change delete value", errorCaller)
 	}
@@ -198,7 +198,7 @@ func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 			)
 	}
 
-	storedComment, err = ch.comm.Update(c.Request.Context(), &newComment)
+	storedComment, err = ch.comm.Update(c.Request.Context(), newComment.ID, &newComment)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -210,7 +210,7 @@ func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 func (ch *commentHandle) Delete(c *gin.Context) (int, string, error) {
 	const errorCaller string = "delete comment"
 	// A request must be authenticated to access this page.
-	userIDParam, err := ginContextUserID(c)
+	userIDParam, err := wrapGinContextUserID(c)
 	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusInternalServerError,
 			"issue parsing ID from context",

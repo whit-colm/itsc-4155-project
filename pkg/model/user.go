@@ -18,7 +18,7 @@ type User struct {
 	Pronouns    string    `json:"pronouns"`
 	Username    Username  `json:"username"`
 	Email       string    `json:"email"`
-	Avatar      uuid.UUID `json:"avatar"`
+	Avatar      uuid.UUID `json:"bref_avatar"`
 	Admin       bool      `json:"admin"`
 }
 

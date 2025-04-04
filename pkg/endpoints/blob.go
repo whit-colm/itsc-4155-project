@@ -18,7 +18,7 @@ type blobHandle struct {
 var lh blobHandle
 
 func (b *blobHandle) GetRaw(c *gin.Context) (int, string, error) {
-	const errorCaller string = "get  blob"
+	const errorCaller string = "get blob"
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return http.StatusBadRequest,
@@ -35,7 +35,6 @@ func (b *blobHandle) GetRaw(c *gin.Context) (int, string, error) {
 			"Error reading blob into response",
 			fmt.Errorf("%v: %w", errorCaller, err)
 	} else {
-
 		for k, v := range o.Metadata {
 			switch k {
 			// TODO: update in future

@@ -5,8 +5,10 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base32"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"slices"
@@ -36,7 +38,7 @@ func init() {
 
 // Handle for the signed-in user
 func (h *userHandle) AccountInfo(c *gin.Context) (int, string, error) {
-	id, err := ginContextUserID(c)
+	id, err := wrapGinContextUserID(c)
 	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusInternalServerError,
 			"issue parsing ID from context",
@@ -62,26 +64,57 @@ func (h *userHandle) AccountInfo(c *gin.Context) (int, string, error) {
 
 // Handle for other users,
 func (h *userHandle) UserInfo(c *gin.Context) (int, string, error) {
-	paramId, err := uuid.Parse(c.Param("id"))
+	const errorCaller string = "user info"
+	paramUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return http.StatusBadRequest,
 			"unable to parse parameter UUID",
-			fmt.Errorf("user info: %w", err)
+			fmt.Errorf("%v: %w", errorCaller, err)
 	}
-	userId, err := ginContextUserID(c)
+	userId, err := wrapGinContextUserID(c)
 	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusInternalServerError,
 			"issue parsing ID from context",
-			fmt.Errorf("get current user: %w", err)
+			fmt.Errorf("%v: %w", errorCaller, err)
 	}
-	if paramId == userId {
+	if paramUserID == userId {
 		// TODO: Make less static.
 		c.Redirect(http.StatusFound, "/api/user/me")
 	}
-	panic("unimplemented!")
+	return http.StatusFound, "", nil
 }
 
-func (h *userHandle) Delete(c *gin.Context) {
+func (h *userHandle) Delete(c *gin.Context) (int, string, error) {
+	const errorCaller string = "delete user"
+	// Get permissions for the current authenticated user, and the
+	// value of the `id` param; these are used for administrator
+	// deletion functionality.
+	perms := c.GetBool("permissions")
+	paramUserID, _ := uuid.Parse(c.Param("id"))
+
+	// Get the ID of the currently authenticated user
+	//
+	// We do not need to handle the error because the permission check
+	// middleware already requires a valid token to be passed; so if
+	// we're here we know there must be one.
+	tokenUser, _ := wrapGinContextUserID(c)
+
+	// Determine the user we actually intend to delete:
+	//  1. If the param ID is set we intend to delete that user; and we
+	//     need to check for valid permissions
+	//  2. If the param Id is nil, we intend to delete the token user.
+	var userIDToDelete uuid.UUID
+	if paramUserID == uuid.Nil {
+		if !perms {
+			return http.StatusForbidden,
+				"You do not have the necessary permissions to delete other users",
+				fmt.Errorf("%v: user permissions error", errorCaller)
+		}
+		userIDToDelete = paramUserID
+	} else {
+		userIDToDelete = tokenUser
+	}
+
 	// We require a query parameter called `code` so someone doesn't
 	// just randomly ice their account.
 	// The code is easy to calculate and is not cryptographically
@@ -92,38 +125,115 @@ func (h *userHandle) Delete(c *gin.Context) {
 	code := c.Query("code")
 	matches := func(id uuid.UUID) []string {
 		m := make([]string, 3)
-		m[0] = genDeleteTOTP(uuid.Nil, -30*time.Second)
-		m[1] = genDeleteTOTP(uuid.Nil, 0)
-		m[2] = genDeleteTOTP(uuid.Nil, 30*time.Second)
+		m[0] = genDeleteTOTP(id, -30*time.Second)
+		m[1] = genDeleteTOTP(id, 0)
+		m[2] = genDeleteTOTP(id, 30*time.Second)
 		return m
-	}(uuid.Nil)
+	}(userIDToDelete)
 	if !slices.Contains(matches, code) {
-		c.JSON(http.StatusForbidden,
-			jsonParsableError{
-				Summary: "Invalid deletion code, are you sure you want to do this?",
-				Details: fmt.Errorf("deletion code expected `%s`, received `%s`",
-					matches,
-					code),
-			},
-		)
-		return
+		return http.StatusForbidden,
+			"Invalid deletion code, are you sure you want to do this?",
+			fmt.Errorf("%v: deletion code expected `%s`, received `%s`",
+				errorCaller,
+				matches,
+				code,
+			)
 	}
 
-	err := h.repo.Delete(c.Request.Context(), uuid.Nil)
+	err := h.repo.Delete(c.Request.Context(), userIDToDelete)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError,
-			jsonParsableError{
-				Summary: "deleting user failed",
-				Details: err,
-			},
-		)
+		return wrapDatastoreError(errorCaller, err)
 	}
-	// Try to delete but we don't really care tbh
-	h.blob.Delete(c.Request.Context(), uuid.Nil)
+	return http.StatusOK, "", nil
 }
 
-func (h *userHandle) Update(ctx *gin.Context) {
-	panic("unimplemented")
+func (h *userHandle) Update(c *gin.Context) (int, string, error) {
+	const errorCaller string = "update user"
+	tokenUser, err := wrapGinContextUserID(c)
+	if errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusUnauthorized,
+			"You must be logged in to edit your profile",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"Issue parsing ID from context",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+	jBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return http.StatusBadRequest,
+			"There was an issue reading the body of your request",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	}
+	var user model.User
+	if err := json.Unmarshal(jBytes, &user); err != nil {
+		return http.StatusBadRequest,
+			"could not parse JSON into user object",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	}
+
+	if user.ID == uuid.Nil {
+		return http.StatusBadRequest,
+			"UUID you're passing is nil, which likely means you're not sending a full object. Send a full object as the update process will automatically delete empty fields",
+			fmt.Errorf("%v: patch user ID is `%v`", uuid.Nil)
+	}
+
+	updated, err := h.repo.Update(c.Request.Context(), tokenUser, &user)
+	if err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	}
+
+	c.JSON(http.StatusOK, updated)
+	return http.StatusOK, "", nil
+}
+
+func (h *userHandle) UpdateAvatar(c *gin.Context) (int, string, error) {
+	const errorCaller string = "update user avatar"
+	tokenUser, err := wrapGinContextUserID(c)
+	if errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusUnauthorized,
+			"You must be logged in to edit your profile",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"Issue parsing ID from context",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+	mdata := make(map[string]string)
+	if ct := c.Request.Header.Get("content-type"); strings.HasPrefix(ct, "image/") {
+		mdata["content-type"] = ct
+	} else {
+		return http.StatusBadRequest,
+			"User avatars must be an image",
+			fmt.Errorf("%v: expected content-type of `image/*`, received `%v`", ct)
+	}
+	user, err := h.repo.GetByID(c.Request.Context(), tokenUser)
+	if err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	}
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return http.StatusInternalServerError,
+			"could not generate UUIDv7",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+	newAvatar := &model.Blob{
+		ID:       id,
+		Metadata: mdata,
+		Content:  c.Request.Body,
+	}
+	if err = h.blob.Create(c.Request.Context(), newAvatar); err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	}
+
+	user.Avatar = id
+	user, err = h.repo.Update(c.Request.Context(), user.ID, user)
+	if err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	}
+	c.JSON(http.StatusOK, user)
+	return http.StatusOK, "", nil
 }
 
 // Not an endpoint to be exposed directly!!!
