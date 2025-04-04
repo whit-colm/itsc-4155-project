@@ -90,10 +90,29 @@ type UserManager interface {
 	GetByGithubID(ctx context.Context, ghid string) (*model.User, error)
 	ExistsByGithubID(ctx context.Context, ghid string) (bool, error)
 	GetByUserHandle(ctx context.Context, handle string) (*model.User, error)
+	// Gets all comments the user has voted on as a yucky tuple
+	//  - CommentID is the UUID of the comment
+	//  - Vote is 1 for positive, -1 for negative. No 0's
+	VotedComments(ctx context.Context, userID uuid.UUID) ([]*struct {
+		CommentID uuid.UUID
+		Vote      int
+	}, error)
 }
 
 type CommentManager interface {
 	CRUDmanager[model.Comment]
 	GetBookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error)
 	GetAuthor(ctx context.Context, commentID uuid.UUID) (uuid.UUID, error)
+	// Vote on a comment, a vote only ever counts for 1, therefore:
+	//  - vote > 0 -> adds 1 to the total
+	//  - vote < 0 -> removes 1 from the total
+	//  - vote = 0 -> removes any vote
+	// The total votes are returned at the end
+	Vote(ctx context.Context, commentID uuid.UUID, vote int) (int, error)
+	// Gets if you have voted on a comment. Like Vote(), returns an int
+	// where:
+	//  -  1 -> Positive vote
+	//	- -1 -> Negative vote
+	//  -  0 -> No vote
+	Voted(ctx context.Context, commentID uuid.UUID) (int, error)
 }
