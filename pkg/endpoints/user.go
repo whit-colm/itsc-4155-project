@@ -136,6 +136,11 @@ func (h *userHandle) create(ctx context.Context, u model.User, a string) (int, s
 			err
 	}
 	defer resp.Body.Close()
+	mdata := make(map[string]string)
+	mdata["content-type"] = resp.Header.Get("content-type")
+	// This does not need to be cast to Time and back because it is
+	// already a UNIX date
+	mdata["last-modified"] = resp.Header.Get("last-modified")
 
 	imgID, err := uuid.NewV7()
 	if err != nil {
@@ -152,8 +157,9 @@ func (h *userHandle) create(ctx context.Context, u model.User, a string) (int, s
 	}
 
 	b := model.Blob{
-		ID:      imgID,
-		Content: resp.Body,
+		ID:       imgID,
+		Metadata: mdata,
+		Content:  resp.Body,
 	}
 
 	u.ID = userID
