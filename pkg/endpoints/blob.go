@@ -16,7 +16,7 @@ func (b *blobHandle) GetRaw(c *gin.Context) {
 	panic("unimplemented")
 }
 
-func (b *blobHandle) GetDecoded(c *gin.Context) {
+func (b *blobHandle) GetAsJSON(c *gin.Context) {
 	panic("unimplemented")
 }
 

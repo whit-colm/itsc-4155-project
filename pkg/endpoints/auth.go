@@ -128,6 +128,32 @@ func AuthorizationJWT() gin.HandlerFunc {
 	}
 }
 
+// UserPermissions is a function which informs the context of the
+// requesting user's permissions. This requires that some authorization
+// has been done before hand and a valid user ID stored in the gontext
+// map as `"userID"`
+func UserPermissions() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := ginContextUserID(c)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized,
+				jsonParsableError{
+					Summary: "Issue parsing ID from context, are you sure you're authenticated?",
+					Details: fmt.Errorf("check permissions: %w", err),
+				})
+			return
+		}
+		admin, err := ah.repo.Permissions(c.Request.Context(), id)
+		if err != nil {
+			h, s, d := wrapDatastoreError(err, "check permissions")
+			c.AbortWithStatusJSON(h, jsonParsableError{s, d})
+			return
+		}
+		c.Set("permissions", admin)
+		c.Next()
+	}
+}
+
 // Wrapper to get usable UUID type from gin context key-value store
 func ginContextUserID(c *gin.Context) (uuid.UUID, error) {
 	idAny, ok := c.Get("userID")

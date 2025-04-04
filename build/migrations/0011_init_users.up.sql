@@ -27,5 +27,7 @@ CREATE UNIQUE INDEX i_users_ghid ON users (github_id);
 CREATE UNIQUE INDEX i_users_full_username ON users (
     (handle || '#' || lpad(discriminator::TEXT, 4, '0'))
 );
-CREATE UNIQUE INDEX i_users_handle_discriminator ON users (handle, discriminator);
-CREATE INDEX i_users_name ON users USING GIN (to_tsvector('english', display_name));
+CREATE UNIQUE INDEX i_users_handle_discriminator ON users 
+    (handle, discriminator);
+CREATE INDEX i_users_name ON users
+    USING GIN (to_tsvector('english', display_name));

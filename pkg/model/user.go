@@ -22,6 +22,16 @@ type User struct {
 	Admin       bool      `json:"admin"`
 }
 
+func (u User) ToAuthor() CommentUser {
+	return CommentUser{
+		ID:          u.ID,
+		DisplayName: u.DisplayName,
+		Pronouns:    u.Pronouns,
+		Username:    u.Username,
+		Avatar:      u.Avatar,
+	}
+}
+
 var (
 	// Validate the general structure of a username. This does not
 	// actually validate a a username, but should be used as a
