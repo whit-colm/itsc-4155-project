@@ -160,7 +160,15 @@ func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (
 }
 
 func (u *userRepository) Permissions(ctx context.Context, userID uuid.UUID) (bool, error) {
-	panic("unimplemented")
+	const errorCaller string = "get user permissions"
+	var perms bool
+
+	if err := u.db.QueryRow(ctx,
+		`SELECT superuser FROM users WHERE id = $1`, userID,
+	).Scan(&perms); err != nil {
+		return false, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+	return perms, nil
 }
 
 // Search implements repository.UserManager.
