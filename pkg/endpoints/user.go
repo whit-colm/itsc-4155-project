@@ -36,52 +36,82 @@ func init() {
 	hackyUUIDtoB32RE = regexp.MustCompile(`[ABCDEFGHIJKLMNOPQRSTUVWXYZ234567]`)
 }
 
-// Handle for the signed-in user
-func (h *userHandle) AccountInfo(c *gin.Context) (int, string, error) {
-	id, err := wrapGinContextUserID(c)
-	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
-		return http.StatusInternalServerError,
-			"issue parsing ID from context",
-			fmt.Errorf("get current user: %w", err)
-	} else if errors.Is(err, errUserIDKeyNotFound) {
-		return http.StatusUnauthorized,
-			"you must be logged in to access this page",
-			fmt.Errorf("get current user: %w", err)
-	}
-	u, err := h.repo.GetByID(c.Request.Context(), id)
-	if errors.Is(err, repository.ErrorNotFound) {
-		return http.StatusNotFound,
-			"could not find user with ID",
-			fmt.Errorf("get current user: %w", err)
-	} else if err != nil {
-		return http.StatusInternalServerError,
-			"unknown error looking up user",
-			fmt.Errorf("get current user: %w", err)
-	}
-	c.JSON(http.StatusOK, u)
-	return http.StatusOK, "", nil
-}
-
 // Handle for other users,
 func (h *userHandle) UserInfo(c *gin.Context) (int, string, error) {
 	const errorCaller string = "user info"
-	paramUserID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
+	// This has to be a bit more complex but splitting it into two
+	// methods ended up looking kinda grody. Here we have to:
+	//  1. *Try* and get the user ID of the logged in user
+	//  2. *Try* and get the "id" URL parameter
+	//
+	// After that we have to perform a bit of logic to determine what
+	// information we retrieve, and how much should be shown in the
+	// response.
+	//
+	//	- If the token is valid but the param is empty, then return the
+	//    token user's complete profile (i.e. /api/user/me)
+	//  - If the param is correctly formed, return that user
+	//  - If both the param and tokens are empty, return a 401, as the
+	//    user is attempting to access `/api/user/me` without
+	//    authenticating.
+	//  - Otherwise return a 400, as the param was obviously malformed
+	var retrievalUserID uuid.UUID
+	var fullProfileInfo bool
+
+	paramUserID, pErr := wrapGetUUID(c, "id")
+	tokenUserID, tErr := wrapGinContextUserID(c)
+
+	// Here is where we do our checks
+	switch {
+	case tokenUserID != uuid.Nil && c.Param("id") == "":
+		// The logged in user is requesting their own page via /me/
+		retrievalUserID = tokenUserID
+		fullProfileInfo = true
+	case paramUserID != uuid.Nil:
+		// Return a redacted version of the param user
+		retrievalUserID = paramUserID
+		fullProfileInfo = false
+	case c.Param("id") == "" && !errors.Is(tErr, errUserIDKeyNotFound):
+		// If the param and token are blank (errUserIDKeyNotFound is
+		// just a fancy way of saying we got the zero-value when we
+		// checked the context for the token user), then the webpage
+		// being accessed is /api/user/me, but there's no "me" to be,
+		// so 401 to thee!
+		return http.StatusUnauthorized,
+			"You must be logged in to view this page",
+			fmt.Errorf("%v: ", errorCaller)
+	default:
+		// Otherwise 400, this should only be for a cock-up by the user
+		// messing up the param, because any abnormalities in the JWT
+		// auth get caught there.
 		return http.StatusBadRequest,
-			"unable to parse parameter UUID",
-			fmt.Errorf("%v: %w", errorCaller, err)
+			"Malformed ID parameter or token error",
+			fmt.Errorf("%v: %w;\t%w", errorCaller, pErr, tErr)
 	}
-	userId, err := wrapGinContextUserID(c)
-	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
-		return http.StatusInternalServerError,
-			"issue parsing ID from context",
-			fmt.Errorf("%v: %w", errorCaller, err)
+
+	u, err := h.repo.GetByID(c.Request.Context(), retrievalUserID)
+	if err != nil {
+		return wrapDatastoreError(errorCaller, err)
 	}
-	if paramUserID == userId {
-		// TODO: Make less static.
-		c.Redirect(http.StatusFound, "/api/user/me")
+
+	// remove private information if directed.
+	//
+	// For security, we copy non-private information to a new struct
+	// then reassign rather than censoring private info directly.
+	if !fullProfileInfo {
+		var uE model.User
+		uE.ID = u.ID
+		uE.DisplayName = u.DisplayName
+		uE.Pronouns = u.Pronouns
+		uE.Username = u.Username
+		uE.Avatar = u.Avatar
+		uE.Admin = u.Admin
+
+		u = &uE
 	}
-	return http.StatusFound, "", nil
+	c.JSON(http.StatusOK, u)
+
+	return http.StatusOK, "", nil
 }
 
 func (h *userHandle) Delete(c *gin.Context) (int, string, error) {

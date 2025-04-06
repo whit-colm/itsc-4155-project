@@ -23,13 +23,13 @@ var ch commentHandle
 
 func (ch *commentHandle) BookReviews(c *gin.Context) (int, string, error) {
 	const errorCaller string = "get book reviews"
-	id, err := uuid.Parse(c.Param("id"))
+	bookID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return http.StatusBadRequest,
 			"Unable to parse UUID",
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
-	comments, err := ch.comm.BookComments(c.Request.Context(), id)
+	comments, err := ch.comm.BookComments(c.Request.Context(), bookID)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -56,7 +56,7 @@ func (ch *commentHandle) Get(c *gin.Context) (int, string, error) {
 func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
 	const errorCaller string = "post new comment"
 	// The user ID parameter must be set.
-	userID, err := wrapGinContextUserID(c)
+	tokenUserID, err := wrapGinContextUserID(c)
 	if errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusUnauthorized,
 			"you must be logged in to access this page",
@@ -96,7 +96,7 @@ func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
 	}
 	// We do not need to populate the rest, this should be enough for
 	// the backing store
-	comment.Poster.ID = userID
+	comment.Poster.ID = tokenUserID
 	if err = ch.comm.Create(c.Request.Context(), &comment); err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}

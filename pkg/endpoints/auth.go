@@ -26,7 +26,6 @@ import (
  * https://eli.thegreenplace.net/2023/sign-in-with-github-in-go/
  */
 
-// TODO: do not bake secret into the f*****g source code.
 type jwtCustomSigner struct {
 	priv crypto.Signer
 	pub  crypto.PublicKey
