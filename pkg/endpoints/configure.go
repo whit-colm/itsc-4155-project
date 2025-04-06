@@ -100,8 +100,7 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	ah = authHandle{rp.User, rp.Auth}
 	var err error
 
-	jwtSigner.pub, jwtSigner.priv, err = rp.Auth.KeyPair(context.TODO())
-	ah.auth.KeyPair(context.Background())
+	jwtSigner.pub, jwtSigner.priv, err = ah.auth.KeyPair(context.TODO())
 	if err != nil {
 		panic(err)
 	}
