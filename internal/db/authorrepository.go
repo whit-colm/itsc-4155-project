@@ -35,7 +35,7 @@ func (a *authorRepository) Create(ctx context.Context, author *model.Author) err
 
 	_, err = tx.Exec(ctx,
 		`INSERT INTO authors (id, familyname, givenname)
-		 VALUES ($1, $2, $3, $4)`,
+		 VALUES ($1, $2, $3)`,
 		author.ID, author.GivenName, author.GivenName,
 	)
 	if err != nil {
@@ -95,28 +95,5 @@ func (a *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Au
 // Note that this is currently cooked, and just returns all authors in the db
 // at a later time updates will be made to allow for search parameters.
 func (a *authorRepository) Search(ctx context.Context) ([]model.Author, error) {
-	authors := make([]model.Author, 0, 3)
-
-	rows, err := a.db.Query(ctx,
-		`SELECT
-			a.id,
-			a.givenname,
-			a.familyname
-		FROM authors a
-		GROUP BY a.id`)
-
-	if err != nil {
-		return []model.Author{}, fmt.Errorf("unable to query db: %w", err)
-	}
-
-	for rows.Next() {
-		var a model.Author
-		rows.Scan(&a.ID, &a.GivenName, &a.FamilyName)
-		authors = append(authors, a)
-	}
-	if rows.Err() != nil {
-		return []model.Author{}, fmt.Errorf("error when collecting next row: %w", err)
-	}
-
-	return authors, nil
+	panic("unimplemented!")
 }
