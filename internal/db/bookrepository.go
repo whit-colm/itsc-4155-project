@@ -75,7 +75,7 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	return tx.Commit(ctx)
 }
 
-func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...string) (*model.Book, error) {
+func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
 	var book model.Book
 	var published time.Time
 	var isbns []byte
@@ -103,7 +103,7 @@ func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...st
 		 GROUP BY b.id`,
 		clause)
 	if err := b.db.QueryRow(ctx,
-		query, vals,
+		query, vals...,
 	).Scan(
 		&book.ID, &book.Title, &published, &authorIDs, &isbns,
 	); err != nil {
@@ -123,7 +123,7 @@ func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...st
 }
 
 // Update implements repository.BookManager.
-func (b *bookRepository) Update(ctx context.Context, fromID uuid.UUID, to *model.Book) (*model.Book, error) {
+func (b *bookRepository) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
 	panic("unimplemented")
 }
 

@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 	"golang.org/x/oauth2"
 )
@@ -49,6 +51,16 @@ func wrapDatastoreError(caller string, err error) (int, string, error) {
 			"An issue occured and your request could not be completed",
 			fmt.Errorf("%v: %w", caller, err)
 	}
+}
+
+// In the same way you might use c.GetBool/GetInt/etc, but instead for
+// a uuid.UUID. This also gives an error which can be fed back with a
+// 400.
+func wrapGetUUID(c *gin.Context, key string) (uuid.UUID, error) {
+	idStr := c.Param(key)
+	idStr = strings.TrimPrefix(idStr, "/")
+	idStr = strings.TrimSuffix(idStr, "/")
+	return uuid.Parse(idStr)
 }
 
 type jsonParsableError struct {
@@ -117,10 +129,13 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	comments := api.Group("/comments")
 	comments.Use(AuthorizationJWT())
 	ch = commentHandle{rp.Book, rp.Comment}
-	books.GET(":id/reviews", wrap(ch.BookReviews))
-	books.POST("/:id/reviews", wrap(ch.Post)) // Only to be used by authenticated accts
-	comments.POST("/", wrap(ch.Post))         // Only to be used by authenticated accts
+	books.GET("/:id/reviews", wrap(ch.BookReviews))
+	books.GET("/:id/reviews/votes", wrap(ch.Votes)) // Only to be used by authenticated accts
+	books.POST("/:id/reviews", wrap(ch.Post))       // Only to be used by authenticated accts
+	comments.POST("/", wrap(ch.Post))               // Only to be used by authenticated accts
 	comments.GET("/:id", wrap(ch.Get))
+	comments.POST("/:id/vote", wrap(ch.Vote))                                          // Only to be used by authenticated accts
+	comments.GET("/:id/vote", wrap(ch.Voted))                                          // Only to be used by authenticated accts
 	comments.PATCH("/:id", wrap(ch.Edit))                                              // Only to be used by authenticated accts
 	comments.DELETE(":id", wrap(ch.Delete)).Use(AuthorizationJWT(), UserPermissions()) // Only to be used by authenticated accts (+admin functionality)
 

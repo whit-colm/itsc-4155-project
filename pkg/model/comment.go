@@ -30,13 +30,13 @@ type Comment struct {
 	// is populated, that means it's a reply to another review, which
 	// as many as desired are allowed.
 	Rating float32   `json:"rating,omitempty"`
-	Reply  uuid.UUID `json:"reply,omitempty"`
+	Parent uuid.UUID `json:"parent,omitempty"`
 
 	// If a comment has been deleted, the body and author information
 	// should be null, however the comment entry itself in the
 	// datastore should still 'exist' as replies will still need to
 	// reference it
 	Deleted bool      `json:"deleted,omitempty"`
-	Edited  time.Time `json:"edited,omitempty"`
+	Edited  time.Time `json:"edited"`
 	Votes   int       `json:"votes,omitempty"`
 }

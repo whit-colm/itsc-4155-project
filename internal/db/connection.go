@@ -81,7 +81,7 @@ func (p *postgres) Connect(ctx context.Context, args ...any) error {
 		}
 	}
 
-	//* first boot & startup maintnenace from here on
+	//* first boot & startup maintenance from here on
 
 	// The rest of this is initial db setup, inserting
 	// necessary fields into the database like cryptographic keys
@@ -182,6 +182,7 @@ func NewRepository(uri string, timeout time.Duration) (repository.Repository, er
 	r.Author = newAuthorRepository(db)
 	r.User = newUserRepository(db)
 	r.Blob = newBlobRepository(db)
+	r.Comment = newCommentRepository(db)
 	return r, nil
 }
 

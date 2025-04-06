@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,7 +29,7 @@ func (ch *commentHandle) BookReviews(c *gin.Context) (int, string, error) {
 			"Unable to parse UUID",
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
-	comments, err := ch.comm.GetBookComments(c.Request.Context(), id)
+	comments, err := ch.comm.BookComments(c.Request.Context(), id)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -38,13 +39,13 @@ func (ch *commentHandle) BookReviews(c *gin.Context) (int, string, error) {
 
 func (ch *commentHandle) Get(c *gin.Context) (int, string, error) {
 	const errorCaller string = "get comment"
-	id, err := uuid.Parse(c.Param("id"))
+	commentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return http.StatusBadRequest,
 			"Unable to parse UUID",
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
-	comment, err := ch.comm.GetByID(c.Request.Context(), id)
+	comment, err := ch.comm.GetByID(c.Request.Context(), commentID)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -56,13 +57,13 @@ func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
 	const errorCaller string = "post new comment"
 	// The user ID parameter must be set.
 	userID, err := wrapGinContextUserID(c)
-	if err != nil && !errors.Is(err, errUserIDKeyNotFound) {
-		return http.StatusInternalServerError,
-			"issue parsing ID from context",
-			fmt.Errorf("%s: %w", errorCaller, err)
-	} else if errors.Is(err, errUserIDKeyNotFound) {
+	if errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusUnauthorized,
 			"you must be logged in to access this page",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"issue parsing ID from context",
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
 	// Try to get very likely non-existent ID
@@ -198,7 +199,7 @@ func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 			)
 	}
 
-	storedComment, err = ch.comm.Update(c.Request.Context(), newComment.ID, &newComment)
+	storedComment, err = ch.comm.Update(c.Request.Context(), &newComment)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -232,13 +233,139 @@ func (ch *commentHandle) Delete(c *gin.Context) (int, string, error) {
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
 
-	authorID, err := ch.comm.GetAuthor(c.Request.Context(), commentIDParam)
+	comment, err := ch.comm.GetByID(c.Request.Context(), commentIDParam)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
-	} else if userIDParam != authorID && !perms {
+	} else if userIDParam != comment.Poster.ID && !perms {
 		return http.StatusForbidden,
 			"You do not have permission to delete that comment",
 			nil
+	}
+	return http.StatusOK, "", nil
+}
+
+func (ch *commentHandle) Vote(c *gin.Context) (int, string, error) {
+	const errorCaller string = "vote on comment"
+	// Get User ID (required) from middleware
+	userID, err := wrapGinContextUserID(c)
+	if errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusUnauthorized,
+			"you must be logged in to access this page",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"issue parsing ID from context",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	}
+	// Get comment ID (required) from parameters
+	commentID, err := wrapGetUUID(c, "id")
+	if err != nil {
+		return http.StatusBadRequest,
+			"issue parsing ID from URL",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+	// While this is a method used in a POST call, because the data is
+	// so simple we just transmit it via a query parameter
+	vote, err := strconv.Atoi(c.Query("vote"))
+	if err != nil {
+		return http.StatusBadRequest,
+			"There was an issue processing the vote query parameter",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	total, err := ch.comm.Vote(c.Request.Context(), userID, commentID, vote)
+	if err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	}
+
+	m := make(map[uuid.UUID]int)
+	m[commentID] = total
+	c.JSON(http.StatusOK, m)
+
+	return http.StatusOK, "", nil
+}
+
+func (ch *commentHandle) Voted(c *gin.Context) (int, string, error) {
+	const errorCaller string = "get comment vote"
+	// Get User ID (required) from middleware
+	userID, err := wrapGinContextUserID(c)
+	if errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusUnauthorized,
+			"you must be logged in to access this page",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"issue parsing ID from context",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	}
+	// Get comment ID (required) from parameters
+	commentID, err := wrapGetUUID(c, "id")
+	if err != nil {
+		return http.StatusBadRequest,
+			"issue parsing ID from URL",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	vMap, err := ch.comm.Voted(c.Request.Context(), userID, uuid.UUIDs{commentID})
+	if err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	}
+
+	// TODO: Talk with frontend how they want the value given
+
+	// 1. same as `Votes`:
+	c.JSON(http.StatusOK, vMap)
+
+	// 2. Plain ole number
+	//c.String(http.StatusOK, "%d", vMap[commentID])
+
+	return http.StatusOK, "", nil
+}
+
+func (ch *commentHandle) Votes(c *gin.Context) (int, string, error) {
+	const errorCaller string = "get all votes on book"
+	// Get User ID (required) from middleware
+	userID, err := wrapGinContextUserID(c)
+	if errors.Is(err, errUserIDKeyNotFound) {
+		return http.StatusUnauthorized,
+			"you must be logged in to access this page",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	} else if err != nil {
+		return http.StatusInternalServerError,
+			"issue parsing ID from context",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	}
+	// Get Book ID (required) from parameters
+	bookID, err := wrapGetUUID(c, "id")
+	if err != nil {
+		return http.StatusBadRequest,
+			"issue parsing ID from URL",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	// TODO: THIS IS SO UNIMAGINABLY LABOR-INTENSIVE.
+	// COME UP WITH A WAY TO NOT. DO THIS.
+	ids, h, s, err := func(bookID uuid.UUID) (uuid.UUIDs, int, string, error) {
+		comments, err := ch.comm.BookComments(c.Request.Context(), bookID)
+		if err != nil {
+			h, s, e := wrapDatastoreError(errorCaller, err)
+			return nil, h, s, e
+		}
+
+		cIDs := make(uuid.UUIDs, len(comments))
+		for i, v := range comments {
+			cIDs[i] = v.ID
+		}
+		return cIDs, 0, "", nil
+	}(bookID)
+	if err != nil {
+		return h, s, err
+	}
+
+	if votes, err := ch.comm.Voted(c.Request.Context(), userID, ids); err != nil {
+		return wrapDatastoreError(errorCaller, err)
+	} else {
+		c.JSON(http.StatusOK, votes)
 	}
 	return http.StatusOK, "", nil
 }

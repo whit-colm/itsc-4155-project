@@ -70,8 +70,8 @@ func (u *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	).Scan(&avatarID)
 
 	if _, err := tx.Exec(ctx,
-		`DELETE FROM users u
-		 WHERE u.id = $1`,
+		`DELETE FROM users
+		 WHERE id = $1`,
 		id,
 	); err != nil {
 		return fmt.Errorf("delete user: %w", err)
@@ -169,9 +169,9 @@ func (u *userRepository) Search(ctx context.Context) ([]model.User, error) {
 }
 
 // Update implements repository.UserManager.
-func (u *userRepository) Update(ctx context.Context, fromID uuid.UUID, to *model.User) (*model.User, error) {
+func (u *userRepository) Update(ctx context.Context, to *model.User) (*model.User, error) {
 	const errorCaller string = "update user"
-	from, err := u.GetByID(ctx, fromID)
+	from, err := u.GetByID(ctx, to.ID)
 	if err != nil {
 		return nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}

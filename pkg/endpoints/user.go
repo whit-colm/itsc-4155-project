@@ -149,7 +149,7 @@ func (h *userHandle) Delete(c *gin.Context) (int, string, error) {
 
 func (h *userHandle) Update(c *gin.Context) (int, string, error) {
 	const errorCaller string = "update user"
-	tokenUser, err := wrapGinContextUserID(c)
+	tokenUserID, err := wrapGinContextUserID(c)
 	if errors.Is(err, errUserIDKeyNotFound) {
 		return http.StatusUnauthorized,
 			"You must be logged in to edit your profile",
@@ -176,9 +176,16 @@ func (h *userHandle) Update(c *gin.Context) (int, string, error) {
 		return http.StatusBadRequest,
 			"UUID you're passing is nil, which likely means you're not sending a full object. Send a full object as the update process will automatically delete empty fields",
 			fmt.Errorf("%v: patch user ID is `%v`", uuid.Nil)
+	} else if user.ID != tokenUserID {
+		return http.StatusForbidden,
+			"You can't edit someone else's profile",
+			fmt.Errorf("%v: mismatch between authenticated user ID `%v` and patch user ID `%v`",
+				tokenUserID,
+				user.ID,
+			)
 	}
 
-	updated, err := h.repo.Update(c.Request.Context(), tokenUser, &user)
+	updated, err := h.repo.Update(c.Request.Context(), &user)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -228,7 +235,7 @@ func (h *userHandle) UpdateAvatar(c *gin.Context) (int, string, error) {
 	}
 
 	user.Avatar = id
-	user, err = h.repo.Update(c.Request.Context(), user.ID, user)
+	user, err = h.repo.Update(c.Request.Context(), user)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
