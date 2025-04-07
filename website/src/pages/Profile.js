@@ -21,7 +21,7 @@ function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
 
       if (token) {
         try {
-          const response = await fetch('/api/users/me', {
+          const response = await fetch('/api/user/me', {
             headers: {
               Authorization: `Bearer ${token}`, // Send JWT as Bearer token
             },

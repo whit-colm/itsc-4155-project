@@ -10,7 +10,7 @@ function UserProfile({ jwt }) {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const response = await fetch(`/api/users/${userId}`, {
+        const response = await fetch(`/api/user/${userId}`, {
           headers: {
             Authorization: `Bearer ${jwt}`,
           },

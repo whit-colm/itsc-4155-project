@@ -29,7 +29,7 @@ function App() {
     const token = getCookie('jwt'); // Read token from cookie
     if (token) {
       try {
-        const response = await fetch('/api/users/me', {
+        const response = await fetch('/api/user/me', {
           headers: {
             Authorization: `Bearer ${token}`, // Send token as Bearer authorization
           },
@@ -115,7 +115,7 @@ function App() {
           <Route path="/profile" element={<Profile jwt={jwt} setJwt={setJwt} />} />
           <Route path="/create-book" element={<CreateBook />} />
           <Route path="/books/:uuid" element={<BookDetails jwt={jwt} />} />
-          <Route path="/users/:userId" element={<UserProfile jwt={jwt} />} />
+          <Route path="/user/:userId" element={<UserProfile jwt={jwt} />} />
           <Route path="/comments" element={<Comments jwt={jwt} />} />
           <Route path="/books/:uuid/reviews" element={<Reviews jwt={jwt} />} />
           <Route path="/books" element={<Books jwt={jwt} />} />
