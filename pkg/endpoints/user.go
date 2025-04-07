@@ -205,11 +205,12 @@ func (h *userHandle) Update(c *gin.Context) (int, string, error) {
 	if user.ID == uuid.Nil {
 		return http.StatusBadRequest,
 			"UUID you're passing is nil, which likely means you're not sending a full object. Send a full object as the update process will automatically delete empty fields",
-			fmt.Errorf("%v: patch user ID is `%v`", uuid.Nil)
+			fmt.Errorf("%v: patch user ID is `%v`", errorCaller, user.ID)
 	} else if user.ID != tokenUserID {
 		return http.StatusForbidden,
 			"You can't edit someone else's profile",
 			fmt.Errorf("%v: mismatch between authenticated user ID `%v` and patch user ID `%v`",
+				errorCaller,
 				tokenUserID,
 				user.ID,
 			)
@@ -242,7 +243,7 @@ func (h *userHandle) UpdateAvatar(c *gin.Context) (int, string, error) {
 	} else {
 		return http.StatusBadRequest,
 			"User avatars must be an image",
-			fmt.Errorf("%v: expected content-type of `image/*`, received `%v`", ct)
+			fmt.Errorf("%v: expected content-type of `image/*`, received `%v`", errorCaller, ct)
 	}
 	user, err := h.repo.GetByID(c.Request.Context(), tokenUser)
 	if err != nil {
