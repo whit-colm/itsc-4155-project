@@ -63,8 +63,12 @@ func (j jwtCustomSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerO
 func AuthorizationJWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		// Yes "Bearer null" is not... something I should check for
+		// explicitly, but I am already asking a lot of the frontend
+		// girls so I'll just make this a nonissue for them
+		if authHeader == "" || authHeader == "Bearer null" {
 			c.Next()
+			return
 		}
 
 		// Expect header value to be in the format "Bearer <token>"
