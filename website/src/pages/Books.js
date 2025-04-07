@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import '../styles/Books.css';
 
-function Books() {
+function Books({ jwt }) { // Accept jwt as a prop
   const [books, setBooks] = useState([]);
+  const [error, setError] = useState(null); // Add error state
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -12,20 +13,26 @@ function Books() {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`, // Include Authorization header
           },
         });
         if (!response.ok) {
-          throw new Error('Failed to fetch books');
+          throw new Error(`Failed to fetch books: ${response.statusText}`);
         }
         const data = await response.json();
         setBooks(data);
-      } catch (error) {
-        console.error('Error fetching books:', error);
+      } catch (err) {
+        console.error('Error fetching books:', err);
+        setError(err.message); // Set error message
       }
     };
 
     fetchBooks();
-  }, []);
+  }, [jwt]);
+
+  if (error) {
+    return <div className="error-message">Error: {error}</div>; // Display error message
+  }
 
   return (
     <div className="books-container">

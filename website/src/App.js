@@ -10,6 +10,7 @@ import UserProfile from './pages/UserProfile';
 import Comments from './pages/Comments';
 import Reviews from './pages/Reviews';
 import Books from './pages/Books';
+import GitHubCallback from './pages/GitHubCallback'; // Import the new callback component
 import './App.css';
 import Footer from './components/Footer';
 import logo from './logo.png';
@@ -23,13 +24,14 @@ function App() {
     if (parts.length === 2) return parts.pop().split(';').shift();
     return null;
   };
+
   const validateToken = async () => {
-    const token = getCookie('jwt');
+    const token = getCookie('jwt'); // Read token from cookie
     if (token) {
       try {
         const response = await fetch('/api/users/me', {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`, // Send token as Bearer authorization
           },
         });
         if (response.ok) {
@@ -112,7 +114,8 @@ function App() {
           <Route path="/users/:userId" element={<UserProfile jwt={jwt} />} />
           <Route path="/comments" element={<Comments jwt={jwt} />} />
           <Route path="/books/:uuid/reviews" element={<Reviews jwt={jwt} />} />
-          <Route path="/books" element={<Books />} />
+          <Route path="/books" element={<Books jwt={jwt} />} />
+          <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
         </Routes>
         <Footer />
       </Router>
