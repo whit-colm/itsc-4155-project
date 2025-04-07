@@ -8,6 +8,7 @@ import (
 
 type TestingStoreManager struct{}
 
+// Useful to check that a type implements an interface
 var _ repository.StoreManager = (*TestingStoreManager)(nil)
 
 // Connect implements repository.StoreManager.

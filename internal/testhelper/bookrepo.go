@@ -47,6 +47,11 @@ func (t *TestingBookRepository) Create(ctx context.Context, book *model.Book) er
 	return nil
 }
 
+// Update implements repository.BookManager.
+func (*TestingBookRepository) Update(ctx context.Context, t *model.Book) (*model.Book, error) {
+	panic("unimplemented")
+}
+
 // Delete implements repository.BookManager.
 func (t *TestingBookRepository) Delete(ctx context.Context, book *model.Book) error {
 	t.books.Delete(book.ID)

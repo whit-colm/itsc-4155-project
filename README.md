@@ -34,35 +34,43 @@ Due to the large array of tooling used in the project, it is intended to be run 
 
 For _almost_ everybody, you want to install [Docker Desktop](https://docs.docker.com/desktop/). If you are using Windows, make sure you set up [Linux Containers on Windows](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/set-up-linux-containers)
 
-## Testing Monoscript
+## Testing Composer
 
-Once you are sure Docker is installed, you can use the following scripts to build and start the testing environment.
+Once you are sure Docker is installed, actual running is done with Docker Compose
 
-> [!IMPORTANT]
-> This has only been fully tested on amd64 Linux. The scripts for Windows and macOS were translated from the Linux script with the help of DeepSeek-R1.
+> [!WARNING]
+> This will not work out of the box on Windows!
 >
-> Furthermore, there could be additional complications for users of arm64 (such as Apple Silicon)
+> Before running this for the first time, see the below section.
 
-In the `/scripts` directory there are two scripts (well, six, but two discrete functions implemented for three separate platforms):
+In the root of the directory (i.e. the folder with the `docker-compose.aml` file):
 
-- "Rust test environment" builds the docker image and starts a container for it and the necessary PostgreSQL instance. These are:
-    - `run-test-env.sh` for Linux and other UNIX-like platforms (Bash)
-    - `RunTestEnv.ps1` for Windows (PowerShell)
-    - `run-test-env.zsh` for macOS (ZSH)
-- "Clean environment" cleans the docker environment of old images and containers, not necessary but it makes it easier to keep a clean workplace.
-    - `clean-env.sh` for Linux and other UNIX-like platforms (Bash)
-    - `clean-env.zsh` for macOS (ZSH)
-    - *No windows version yet exists, sorry.*
+```
+docker compose up
+```
 
-Note that this script should only be used for testing and demo purposes. Full deployments must be done manually as of now, see below for more information:
+You can add certain flags in addition, the most noteworthy of which are as follows:
 
-## Building
+- `-d` - run in detached (background) mode. 
+    - You can stop the containers with `docker stop <container name>`, if you do not know the names of the containers use `docker ps`
+- `--no-deps --build` build the images used by the containers each time before running; this is useful for rapid testing of the docker environment
 
-TODO: Write this
+There are cleanup scripts in `/scripts/` which will prune the containers, images, and volume (used by Postgres for some reason).
 
-## Running
+## Windows
 
-TODO: Write this
+If you are using Windows, you will need to first change certain git config values or else the app will not start. Please follow these steps prior
+
+1. Delete your local repository
+    - Commit and push your changes first, of course. If you are working on something rather special you can merge into a new branch, but you need to delete your copy of the repo.
+    - You don't actually need to, but following step 2 almost every file will show changes and you should not commit them.
+2. In a PowerShell session, run the following command:
+    - ```
+      git config --global core.autocrlf false
+      ```
+3. Re-clone the repo.
+
+The underlying issue is that Window's weird default line terminators break certain shell scripts copied into the containers. This isn't really an issue anymore because software development on Windows is just Linux under the hood anyway, but git has it enabled anyway for compatibility.
 
 # Organization
 

@@ -15,6 +15,6 @@ func TestMain(m *testing.M) {
 		Store: &testhelper.TestingStoreManager{},
 		Book:  &testhelper.TestingBookRepository{},
 	}
-	Configure(r, &ds)
+	Configure(r, &ds, nil)
 	os.Exit(m.Run())
 }
