@@ -10,6 +10,7 @@ function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
   const [favoriteGenres, setFavoriteGenres] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [userId, setUserId] = useState(''); // Add state for user ID
+  const [error, setError] = useState(''); // Add state for error message
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -25,6 +26,11 @@ function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
               Authorization: `Bearer ${token}`, // Send JWT as Bearer token
             },
           });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch user data: ${response.statusText}`);
+          }
+
           const userData = await response.json();
           setName(userData.name);
           setUsername(userData.username);
@@ -33,6 +39,7 @@ function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
           setUserId(userData.id); // Set user ID from the response
         } catch (error) {
           console.error('Error fetching user data:', error);
+          setError('Failed to fetch user data. Please try again later.');
         }
       }
     };
@@ -107,6 +114,7 @@ function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
   return (
     <div className="profile-container">
       <h1>Profile Settings</h1>
+      {error && <p className="error-message">{error}</p>} {/* Display error message */}
       {isEditing ? (
         <form onSubmit={handleSubmit}>
           <input

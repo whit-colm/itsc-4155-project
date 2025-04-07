@@ -35,12 +35,16 @@ function App() {
           },
         });
         if (response.ok) {
+          const userData = await response.json(); // Parse user data
+          console.log('Authenticated user:', userData); // Debugging
           setJwt(token);
         } else if (response.status === 401) {
           // Token is expired or invalid, clear it and redirect to login
           document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
           setJwt(null);
           window.location.href = '/api/auth/github/login';
+        } else {
+          console.error(`Failed to validate token: ${response.statusText}`);
         }
       } catch (error) {
         console.error('Error validating token:', error);
