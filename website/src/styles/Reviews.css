@@ -1,0 +1,45 @@
+.reviews-container {
+  margin: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.reviews-container h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.reviews-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+.reviews-container li {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.reviews-container textarea {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.reviews-container button {
+  margin-top: 5px;
+  padding: 5px 10px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.reviews-container button:hover {
+  background-color: #218838;
+}

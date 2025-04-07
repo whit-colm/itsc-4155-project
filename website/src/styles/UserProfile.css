@@ -1,0 +1,27 @@
+.user-profile-container {
+  margin: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+}
+
+.user-profile-container h1 {
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.user-avatar {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  margin-bottom: 20px;
+}
+
+.user-profile-container p {
+  font-size: 1rem;
+  margin: 5px 0;
+}
+
+.user-profile-container strong {
+  font-weight: bold;
+}

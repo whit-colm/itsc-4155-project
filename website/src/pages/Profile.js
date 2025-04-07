@@ -3,7 +3,7 @@ import '../styles/Profile.css';
 import base32 from 'hi-base32';
 import hmacSHA1 from 'crypto-js/hmac-sha1';
 
-function Profile({ jwt }) {
+function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -13,27 +13,37 @@ function Profile({ jwt }) {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      try {
-        const response = await fetch('/api/users/me', {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        });
-        const userData = await response.json();
-        setName(userData.name);
-        setUsername(userData.username);
-        setEmail(userData.email);
-        setFavoriteGenres(userData.favoriteGenres || []);
-        setUserId(userData.id); // Set user ID from the response
-      } catch (error) {
-        console.error('Error fetching user data:', error);
+      const token = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('jwt='))
+        ?.split('=')[1]; // Read JWT from cookie
+
+      if (token) {
+        try {
+          const response = await fetch('/api/users/me', {
+            headers: {
+              Authorization: `Bearer ${token}`, // Send JWT as Bearer token
+            },
+          });
+          const userData = await response.json();
+          setName(userData.name);
+          setUsername(userData.username);
+          setEmail(userData.email);
+          setFavoriteGenres(userData.favoriteGenres || []);
+          setUserId(userData.id); // Set user ID from the response
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
       }
     };
 
-    if (jwt) {
-      fetchUserData();
-    }
+    fetchUserData();
   }, [jwt]);
+
+  const handleSaveJwt = (token) => {
+    localStorage.setItem('jwt', token);
+    setJwt(token); // Use setJwt from props
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,6 +93,7 @@ function Profile({ jwt }) {
       if (response.ok) {
         alert('Account deleted successfully.');
         document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+        localStorage.removeItem('jwt'); // Clear JWT from localStorage
         window.location.href = '/';
       } else {
         alert('Failed to delete account.');

@@ -7,12 +7,34 @@ function Login() {
   };
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    if (token) {
-      document.cookie = `jwt=${token}; path=/; secure; HttpOnly; SameSite=Strict`; // Store token in a secure cookie
-      window.location.href = '/'; // Redirect to the homepage or desired page
-    }
+    const fetchToken = async () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code'); // GitHub sends a `code` parameter after login
+        const state = urlParams.get('state'); // GitHub sends a `state` parameter for validation
+
+        if (code && state) {
+          const response = await fetch(`/api/auth/github/callback?code=${code}&state=${state}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch token: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          const token = data.token;
+
+          if (token) {
+            document.cookie = `jwt=${token}; path=/; secure; SameSite=Strict`;
+            window.location.href = '/';
+          } else {
+            throw new Error('Token not found in response');
+          }
+        }
+      } catch (error) {
+        console.error('Error during token exchange:', error);
+      }
+    };
+
+    fetchToken();
   }, []);
 
   return (
