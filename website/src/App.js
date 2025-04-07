@@ -1,28 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
 import Recommendations from './pages/Recommendations';
 import Search from './pages/Search';
-// import CreateAccount from './pages/CreateAccount';
-// import Login from './pages/Login';
-// import Profile from './pages/Profile';
-import CreateBook from './pages/CreateBook';
-import BookDetails from './pages/BookDetails';
+import BookDetailPage from './pages/BookDetails';
 import './App.css';
 import Footer from './components/Footer';
 import logo from './logo.png';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
   return (
     <div className="App">
       <Router>
         <header>
           <nav className="App-nav">
-            <Link to="/" className="App-logo-link">
+            <Link to="/">
               <img src={logo} alt="Home" className="App-logo" />
-              <span className="App-logo-text">Jaws</span>
             </Link>
             <ul className="App-nav-links">
               <li>
@@ -34,26 +27,6 @@ function App() {
               <li>
                 <Link to="/search">Search</Link>
               </li>
-              {/* {!isLoggedIn && (
-                <li>
-                  <Link to="/create-account">Create Account</Link>
-                </li>
-              )}
-              {!isLoggedIn && (
-                <li>
-                  <Link to="/login">Login</Link>
-                </li>
-              )}
-              {isLoggedIn && (
-                <li>
-                  <Link to="/profile">Profile</Link>
-                </li>
-              )} */}
-              {/* {isLoggedIn && ( */}
-                <li>
-                  <Link to="/create-book">Create Book</Link>
-                </li>
-              {/* )} */}
             </ul>
           </nav>
         </header>
@@ -61,11 +34,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/search" element={<Search />} />
-          {/* <Route path="/create-account" element={<CreateAccount />} />
-          <Route path="/login" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
-          <Route path="/profile" element={<Profile />} /> */}
-          <Route path="/create-book" element={<CreateBook />} />
-          <Route path="/books/:uuid" element={<BookDetails />} />
+          <Route path="/bookdetail/:id" element={<BookDetailPage />} />
         </Routes>
         <Footer />
       </Router>

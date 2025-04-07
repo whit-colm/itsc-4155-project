@@ -1,5 +1,6 @@
 import React from 'react';
-import '../styles/Recommendations.css'; // Adjusted import path
+import { Link } from 'react-router-dom';
+import '../styles/Recommendations.css';
 
 function Recommendations() {
   return (
@@ -8,16 +9,22 @@ function Recommendations() {
       <p>Here are some books you might like:</p>
       <ul className="recommendations-list">
         <li>
-          <img src={`${process.env.PUBLIC_URL}/1984.png`} alt="1984" className="book-image" />
-          <p>1984</p>
+          <Link to="/bookdetail/1984">
+            <img src={`${process.env.PUBLIC_URL}/1984.png`} alt="1984" className="book-image" />
+            <p>1984</p>
+          </Link>
         </li>
         <li>
-          <img src={`${process.env.PUBLIC_URL}/tkam.png`} alt="To Kill a Mockingbird" className="book-image" />
-          <p>To Kill a Mockingbird</p>
+          <Link to="/bookdetail/tkam">
+            <img src={`${process.env.PUBLIC_URL}/tkam.png`} alt="To Kill a Mockingbird" className="book-image" />
+            <p>To Kill a Mockingbird</p>
+          </Link>
         </li>
         <li>
-          <img src={`${process.env.PUBLIC_URL}/lotr.png`} alt="The Lord of the Rings" className="book-image" />
-          <p>The Lord of the Rings</p>
+          <Link to="/bookdetail/lotr">
+            <img src={`${process.env.PUBLIC_URL}/lotr.png`} alt="The Lord of the Rings" className="book-image" />
+            <p>The Lord of the Rings</p>
+          </Link>
         </li>
       </ul>
     </div>
