@@ -1,20 +1,35 @@
 package scraper
 
 import (
+	"context"
 	"testing"
 	
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
-	
+	"github.com/google/uuid"
 )
 
+// MockBlobManagaer is a mock implementation of BlobManager for testing
+type MockBlobManager struct{}
+
+func (m *MockBlobManager) Store(ctx context.Context, id uuid.UUID, content []byte) error {
+	return nil
+}
+
+func (m *MockBlobManager) Retrieve(ctx context.Context, id uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *MockBlobManager) Delete(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
 
 // Test for FetchBookByISBN
 func TestFetchBookByISBN(t *testing.T) {
+	ctx := context.Background()
+	mockBlobManager := &MockBlobManager{}
 	isbn := "9780143127741" 
 
-	book, err := FetchBookByISBN(isbn)
+	book, err := FetchBookByISBN(ctx, isbn, mockBlobManager)
 	if err != nil {
 		t.Fatalf("Error, got %v", err)
 	}
@@ -58,3 +73,17 @@ func TestExtractISBN(t *testing.T) {
 	assert.Equal(t, "316148410X", isbns[1].String(), "Second ISBN mismatch")
 }
 
+// Test for storeLargeContent
+func TestStoreLargeContent(t *testing.T) {
+	ctx := context.Background()
+	mockBlobManager := &MockBlobManager{}
+	content := "This is a test description that would be over 2KB in real usage"
+
+	id, err := storeLargeContent(ctx, content, mockBlobManager)
+	assert.NoError(t, err, "Should not return error")
+	assert.NotEqual(t, uuid.Nil, id, "Should return valid UUID")
+
+	id, err = storeLargeContent(ctx, "", mockBlobManager)
+	assert.NoError(t, err, "Empty content should not error")
+	assert.Equal(t, uuid.UUID{}, id, "Empty content should return zero UUID")
+}

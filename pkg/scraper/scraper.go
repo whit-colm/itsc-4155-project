@@ -14,7 +14,10 @@ import (
 )
 
 // URL for theGoogle Books API
-const googleBooksAPI = "https://www.googleapis.com/books/v1/volumes?q="
+const (
+	googleBooksAPI = "https://www.googleapis.com/books/v1/volumes?q=isbn:%s"
+	maxContentSize = 2 * 1024 
+)
 
 // Struct for the response from the API
 type GoogleBooksResponse struct {
@@ -29,26 +32,28 @@ type Identifier struct {
 	Identifier string `json:"identifier"`
 }
 
-// Detailed book information
-type VolumeInfo struct {
-	Title               string               `json:"title"`
-	Authors             []string             `json:"authors"`
-	PublishedDate       string               `json:"publishedDate"`
-	IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
+// Struct for different image sizes
+type ImageLinks struct {
+    Thumbnail string `json:"thumbnail"`
+    Small     string `json:"small"`
+    Medium    string `json:"medium"`
+    Large     string `json:"large"`
+    ExtraLarge string `json:"extraLarge"`
 }
 
-// Representation of a book
-type Book struct {
-	ID        uuid.UUID  `json:"id"`        
-	ISBNs     []model.ISBN     `json:"isbns"`     
-	Title     string     `json:"title"`     
-	Author    string     `json:"author"`   
-	Published civil.Date `json:"published"` 
+// Struct for main book information
+type VolumeInfo struct {
+	Title               string       `json:"title"`
+	Authors             []string     `json:"authors"`
+	PublishedDate       string       `json:"publishedDate"`
+	Description         string       `json:"description"`
+	IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
+	ImageLinks         	ImageLinks   `json:"imageLinks"`
 }
 
 // Gets the book data using ISBN and converts it
-func FetchBookByISBN(isbn string) (*model.Book, error) {
-	url := fmt.Sprintf("%sisbn:%s", googleBooksAPI, isbn)
+func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.BlobManager) (*model.Book, error) {
+	url := fmt.Sprintf(googleBooksAPI, isbn)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -86,16 +91,33 @@ func FetchBookByISBN(isbn string) (*model.Book, error) {
 		}
 	}
 
+	// Stores large description
+	descriptionRef := uuid.UUID{}
+	if len(bookData.Description) > maxContentSize {
+		descriptionRef, err = storeLargeContent(ctx, bookData.Description, blobManager)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Stores cover image
+	imageRef := uuid.UUID{}
+	if bookData.ImageLinks.Thumbnail != "" {
+    	imageRef, err = storeImage(ctx, bookData.ImageLinks.Thumbnail, blobManager)
+    	if err != nil {
+       		fmt.Printf("Warning: failed to store image (continuing without): %v\n", err)    
+    	}
+	}
+
+	// Create book model
 	book := &model.Book{
-		Title: bookData.Title,
-		Author: func() string {
-			if len(bookData.Authors) > 0 {
-				return bookData.Authors[0]
-			}
-			return "Unknown Author"
-		}(),
-		Published: published, 
-		ISBNs: extractISBN(bookData.IndustryIdentifiers),
+		ID:        uuid.New(),
+		Title:     bookData.Title,
+		Author:    getFirstAuthor(bookData.Authors),
+		Published: published,
+		ISBNs:       extractISBN(bookData.IndustryIdentifiers),
+		Description: descriptionRef,
+		CoverImage:  imageRef,
 	}
 
 	return book, nil
@@ -120,6 +142,45 @@ func extractISBN(identifiers []Identifier) []model.ISBN {
     return isbns
 }
 
+// storeLargeContent saves large text content
+func storeLargeContent(ctx context.Context, content string, blobManager repository.BlobManager) (uuid.UUID, error) {
+	ref := uuid.New()
+	if err := blobManager.Store(ctx, ref, []byte(content)); err != nil {
+		return uuid.UUID{}, fmt.Errorf("failed to store large content: %v", err)
+	}
+	return ref, nil
+}
+
+// storeImage downloads and stores an image
+func storeImage(ctx context.Context, imageURL string, blobManager repository.BlobManager) (uuid.UUID, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to create image request: %v", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to fetch image: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return uuid.Nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	imageData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to read image data: %v", err)
+	}
+
+	ref := uuid.New()
+	if err := blobManager.Store(ctx, ref, imageData); err != nil {
+		return uuid.Nil, fmt.Errorf("failed to store image: %v", err)
+	}
+
+	return ref, nil
+}
+
 // StoreBook saves the data into the database
 func StoreBook(ctx context.Context, book *model.Book, bookManager repository.BookManager) error {
 	err := bookManager.Create(ctx, book)
@@ -127,4 +188,12 @@ func StoreBook(ctx context.Context, book *model.Book, bookManager repository.Boo
 		return fmt.Errorf("failed to store book: %v", err)
 	}
 	return nil
+}
+
+// getFirstAuthor returns first author or "Unknown Author"
+func getFirstAuthor(authors []string) string {
+	if len(authors) > 0 {
+		return authors[0]
+	}
+	return "Unknown Author"
 }
