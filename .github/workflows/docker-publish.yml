@@ -1,1 +1,13 @@
 name: Publish Docker Images
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: noop
+      run: 
