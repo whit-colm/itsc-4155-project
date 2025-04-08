@@ -18,19 +18,6 @@ type bookHandle struct {
 
 var bh bookHandle
 
-func (bh *bookHandle) GetBooks(c *gin.Context) {
-	s, err := bh.repo.Search(c.Request.Context())
-	if err != nil {
-		// TODO: once actually implementing search, change to a
-		// http.StatusBadRequest
-		c.JSON(http.StatusInternalServerError,
-			jsonParsableError{Summary: "failed to retrieve books",
-				Details: err})
-		return
-	}
-	c.JSON(http.StatusOK, s)
-}
-
 func (bh *bookHandle) GetBookByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

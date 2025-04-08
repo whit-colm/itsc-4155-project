@@ -15,7 +15,7 @@ func TestUsernameFromString_Valid(t *testing.T) {
 	}{
 		{"user#1234", "user", 1234},
 		{"system#0000", "system", 0},
-		{"user #5678", "user ", 5678}, // Handle with trailing space (code allows)
+		{"Thirty Two Character Long String#0001", "Thirty Two Character Long String", 1},
 	}
 
 	for _, tt := range tests {
@@ -37,11 +37,15 @@ func TestUsernameFromString_Valid(t *testing.T) {
 
 func TestUsernameFromString_Invalid(t *testing.T) {
 	invalidInputs := []string{
+		"a#1234", // Short handle
+		"My this *is* a very long handle, isn't it?#1531",
 		"user",         // Missing discriminator
 		"user#12a4",    // Non-digit discriminator
 		"user#123",     // Short discriminator
+		"user#12345",   // Long discriminator
 		"@user#1234",   // Invalid handle character
 		" user#1234",   // Leading space (invalid)
+		"user #1234",   // trailing space (invalid)
 		"invalid#0000", // Non-protected handle with 0000
 	}
 
@@ -61,8 +65,7 @@ func TestUsernameFromComponents_Valid(t *testing.T) {
 		discriminator int
 	}{
 		{"user", 1234},
-		{"system", 0},   // Protected handle with 0
-		{"user ", 5678}, // Trailing space (allowed by code)
+		{"system", 0}, // Protected handle with 0
 	}
 
 	for _, tt := range tests {
@@ -101,10 +104,9 @@ func TestUsernameFromComponents_InvalidDiscriminator(t *testing.T) {
 		handle        string
 		discriminator int
 	}{
-		{"user", 0},       // Non-protected handle with 0
-		{"user", 10000},   // Too high
-		{"user", -1},      // Negative
-		{"system", 10000}, // Protected handle with invalid discriminator
+		{"user", 0},     // Non-protected handle with 0
+		{"user", 10000}, // Too high
+		{"user", -1},    // Negative
 	}
 
 	for _, tt := range tests {
@@ -158,7 +160,6 @@ func TestUsernameValidate(t *testing.T) {
 		{"invalid handle", "us@r", 1234, false, false},
 		{"discrim 0 allowed", "system", 0, true, true},
 		{"discrim 0 disallowed", "user", 0, false, false},
-		{"trailing space handle", "user ", 1234, false, true}, // Allowed per code
 	}
 
 	for _, tt := range tests {
@@ -191,7 +192,6 @@ func TestUsernameJSONUnmarshaling_Valid(t *testing.T) {
 		expected Username
 	}{
 		{`"user#1234"`, Username{handle: "user", discriminator: 1234}},
-		{`"user #5678"`, Username{handle: "user ", discriminator: 5678}},
 		{`"system#0000"`, Username{handle: "system", discriminator: 0}},
 	}
 
@@ -214,7 +214,11 @@ func TestUsernameJSONUnmarshaling_Invalid(t *testing.T) {
 		`"user"`,
 		`"user#12a4"`,
 		`"user#123"`,
-		`"@user#1234"`,
+		`"us#er#1234"`,
+		`"user#12345"`,
+		`" user#1234"`,
+		`"user #1234"`,
+		`"a#1234"`,
 	}
 
 	for _, jsonStr := range invalidJSONs {

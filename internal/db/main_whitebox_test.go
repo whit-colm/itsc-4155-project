@@ -30,7 +30,7 @@ func wrapTestMain(ctx context.Context, repos []repository.DummyPopulator, m *tes
 	}
 	pg = &postgres{}
 
-	err := pg.Connect(uriString)
+	err := pg.Connect(ctx, uriString)
 	if err != nil {
 		return fmt.Errorf("failed to connect to PostgreSQL: %w", err)
 	}

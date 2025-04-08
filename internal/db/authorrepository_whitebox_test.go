@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper/dummyvalues"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
@@ -21,7 +21,7 @@ var _ repository.DummyPopulator = (*authorRepository)(nil)
 func (a *authorRepository) PopulateDummyValues(ctx context.Context) error {
 	batch := &pgx.Batch{}
 
-	for _, author := range testhelper.ExampleAuthors {
+	for _, author := range dummyvalues.ExampleAuthors {
 		batch.Queue(`INSERT INTO authors (id, givenname, familyname)
 					 VALUES ($1, $2, $3)`,
 			author.ID, author.GivenName, author.FamilyName)
@@ -35,7 +35,7 @@ func (a *authorRepository) PopulateDummyValues(ctx context.Context) error {
 
 func (a *authorRepository) IsPrepopulated(ctx context.Context) bool {
 	var ids uuid.UUIDs
-	for _, v := range testhelper.ExampleAuthors {
+	for _, v := range dummyvalues.ExampleAuthors {
 		ids = append(ids, v.ID)
 	}
 	var count int

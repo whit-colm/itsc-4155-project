@@ -1,4 +1,4 @@
-package testhelper
+package dummyvalues
 
 import (
 	"reflect"
@@ -18,7 +18,7 @@ var ExampleBooks []model.Book = []model.Book{
 			model.MustNewISBN("9780451530578", model.ISBN13),
 		},
 		Title:     "A Tale of Two Cities",
-		AuthorID:  uuid.MustParse("01959161-cdfc-7142-8bab-a7008477f417"),
+		AuthorIDs: uuid.UUIDs{uuid.MustParse("01959161-cdfc-7142-8bab-a7008477f417")},
 		Published: civil.Date{Year: 1859, Month: time.November, Day: 26},
 	}, {
 		ID: uuid.MustParse("0124e053-3580-7000-875a-c17e9ba5023c"),
@@ -27,7 +27,7 @@ var ExampleBooks []model.Book = []model.Book{
 			model.MustNewISBN("9780156012195", model.ISBN13),
 		},
 		Title:     "The Little Prince",
-		AuthorID:  uuid.MustParse("01959161-cdfc-7c45-91e3-9c785be04942"),
+		AuthorIDs: uuid.UUIDs{uuid.MustParse("01959161-cdfc-7c45-91e3-9c785be04942")},
 		Published: civil.Date{Year: 1943, Month: time.April},
 	}, {
 		ID: uuid.MustParse("0124e053-3580-7000-9127-dd33bb29c893"),
@@ -36,7 +36,7 @@ var ExampleBooks []model.Book = []model.Book{
 			model.MustNewISBN("9780061122415", model.ISBN13),
 		},
 		Title:     "The Alchemist",
-		AuthorID:  uuid.MustParse("01959161-cdfc-77a4-930d-0732bbf87ea6"),
+		AuthorIDs: uuid.UUIDs{uuid.MustParse("01959161-cdfc-77a4-930d-0732bbf87ea6")},
 		Published: civil.Date{Year: 1988},
 	},
 }
@@ -48,7 +48,7 @@ var ExampleBook model.Book = model.Book{
 		model.MustNewISBN("978-0141439747", model.ISBN13),
 	},
 	Title:     "Oliver Twist",
-	AuthorID:  uuid.MustParse("01959161-cdfc-7142-8bab-a7008477f417"),
+	AuthorIDs: uuid.UUIDs{uuid.MustParse("01959161-cdfc-7142-8bab-a7008477f417")},
 	Published: civil.Date{Year: 1837, Month: time.February},
 }
 
@@ -60,7 +60,7 @@ var DeadBook model.Book = model.Book{
 		model.MustNewISBN("978-0062073488", model.ISBN13),
 	},
 	Title:     "Dream of the Red Chamber",
-	AuthorID:  uuid.MustParse("00000000-0000-8000-0000-100000000000"),
+	AuthorIDs: uuid.UUIDs{uuid.MustParse("00000000-0000-8000-0000-100000000000")},
 	Published: civil.Date{Year: 1791},
 }
 
@@ -70,7 +70,6 @@ var DeadBook model.Book = model.Book{
 // function and not a model method.
 func IsBookEquals(b1, b2 model.Book) bool {
 	if b1.ID != b2.ID ||
-		b1.AuthorID != b2.AuthorID ||
 		b1.Title != b2.Title ||
 		b1.Published != b2.Published {
 		return false
@@ -80,17 +79,35 @@ func IsBookEquals(b1, b2 model.Book) bool {
 		return false
 	}
 
-	m1 := make(map[model.ISBN]bool)
-	m2 := make(map[model.ISBN]bool)
+	if !func() bool {
+		m1 := make(map[model.ISBN]bool)
+		m2 := make(map[model.ISBN]bool)
 
-	for _, v := range b1.ISBNs {
-		m1[v] = true
-	}
-	for _, v := range b2.ISBNs {
-		m2[v] = true
+		for _, v := range b1.ISBNs {
+			m1[v] = true
+		}
+		for _, v := range b2.ISBNs {
+			m2[v] = true
+		}
+
+		return reflect.DeepEqual(m1, m2)
+	}() {
+		return false
 	}
 
-	return reflect.DeepEqual(m1, m2)
+	return func() bool {
+		m1 := make(map[uuid.UUID]bool)
+		m2 := make(map[uuid.UUID]bool)
+
+		for _, v := range b1.AuthorIDs {
+			m1[v] = true
+		}
+		for _, v := range b2.AuthorIDs {
+			m2[v] = true
+		}
+
+		return reflect.DeepEqual(m1, m2)
+	}()
 }
 
 // Bad way to test equivalence of two book slices

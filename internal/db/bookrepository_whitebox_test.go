@@ -11,7 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
+
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper/dummyvalues"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
@@ -22,10 +23,10 @@ var _ repository.DummyPopulator = (*bookRepository)(nil)
 func (b *bookRepository) PopulateDummyValues(ctx context.Context) error {
 	batch := &pgx.Batch{}
 	// TODO: find a way to *not* make this like. O(N*M)??
-	for _, book := range testhelper.ExampleBooks {
-		batch.Queue(`INSERT INTO books (id, title, author_id, published)
-					 VALUES ($1, $2, $3, $4)`,
-			book.ID, book.Title, book.AuthorID, book.Published.In(time.UTC))
+	for _, book := range dummyvalues.ExampleBooks {
+		batch.Queue(`INSERT INTO books (id, title, published)
+					 VALUES ($1, $2, $3)`,
+			book.ID, book.Title, book.Published.In(time.UTC))
 		// isbn used instead of i because `i` generally means index
 		for _, isbn := range book.ISBNs {
 			batch.Queue(`INSERT INTO isbns (isbn, book_id, isbn_type)
@@ -55,7 +56,7 @@ func (b *bookRepository) PopulateDummyValues(ctx context.Context) error {
 
 func (b *bookRepository) IsPrepopulated(ctx context.Context) bool {
 	var ids uuid.UUIDs
-	for _, v := range testhelper.ExampleBooks {
+	for _, v := range dummyvalues.ExampleBooks {
 		ids = append(ids, v.ID)
 	}
 	var count int
@@ -96,22 +97,22 @@ func (a *bookRepository) SetDatastore(ctx context.Context, ds any) error {
 /** Actual tests below **/
 
 func TestBookCreate(t *testing.T) {
-	if err := br.Create(t.Context(), &testhelper.ExampleBook); err != nil {
-		t.Errorf("could not create book `%v`: %s", testhelper.ExampleBook, err)
+	if err := br.Create(t.Context(), &dummyvalues.ExampleBook); err != nil {
+		t.Errorf("could not create book `%v`: %s", dummyvalues.ExampleBook, err)
 	}
 }
 
 func TestBookDelete(t *testing.T) {
-	if err := br.Delete(t.Context(), &testhelper.ExampleBook); err != nil {
-		t.Errorf("could not delete book `%v`: %s", testhelper.ExampleBook, err)
+	if err := br.Delete(t.Context(), dummyvalues.ExampleBook.ID); err != nil {
+		t.Errorf("could not delete book `%v`: %s", dummyvalues.ExampleBook, err)
 	}
 }
 
 func TestBookGetByID(t *testing.T) {
-	if b, err := br.GetByID(t.Context(), testhelper.ExampleBooks[0].ID); err != nil {
+	if b, err := br.GetByID(t.Context(), dummyvalues.ExampleBooks[0].ID); err != nil {
 		t.Errorf("error finding known UUID: %s", err)
-	} else if !testhelper.IsBookEquals(*b, testhelper.ExampleBooks[0]) {
-		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testhelper.ExampleBook)
+	} else if !dummyvalues.IsBookEquals(*b, dummyvalues.ExampleBooks[0]) {
+		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, dummyvalues.ExampleBook)
 	}
 
 	deadUUID, err := uuid.Parse("00000000-0000-8000-0000-200000000000")
@@ -126,17 +127,17 @@ func TestBookGetByID(t *testing.T) {
 }
 
 func TestBookGetByISBN(t *testing.T) {
-	if _, b, err := br.GetByISBN(t.Context(), testhelper.ExampleBook.ISBNs[0]); err != nil {
+	if b, err := br.GetByISBN(t.Context(), dummyvalues.ExampleBook.ISBNs[0]); err != nil {
 		t.Errorf("error finding known ISBN: %s", err)
-	} else if !testhelper.IsBookEquals(*b, testhelper.ExampleBook) {
-		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, testhelper.ExampleBook)
+	} else if !dummyvalues.IsBookEquals(*b, dummyvalues.ExampleBook) {
+		t.Errorf("inequality between fetched and known book: want %v; have %v", *b, dummyvalues.ExampleBook)
 	}
 
 	deadISBN := model.MustNewISBN("978-1408855652")
-	if i, _, err := br.GetByISBN(t.Context(), deadISBN); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if b, err := br.GetByISBN(t.Context(), deadISBN); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		t.Errorf("unexpected error searching dead ISBN: %s", err)
-	} else if i != uuid.Nil {
-		t.Errorf("unexpected found book for dead ISBN: %v", i)
+	} else if b.ID != uuid.Nil {
+		t.Errorf("unexpected found book for dead ISBN: %v", b)
 	}
 }
 
@@ -145,7 +146,7 @@ func TestBookSearch(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error in search: %s", err)
 	}
-	if !testhelper.IsBookSliceEquals(bs, testhelper.ExampleBooks) {
+	if !dummyvalues.IsBookSliceEquals(bs, dummyvalues.ExampleBooks) {
 		t.Errorf("unexpected inequality with fetched books")
 	}
 }

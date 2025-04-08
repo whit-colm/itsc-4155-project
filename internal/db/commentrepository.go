@@ -17,9 +17,9 @@ type commentRepository struct {
 }
 
 // Useful to check that a type implements an interface
-var _ repository.CommentManager = (*commentRepository)(nil)
+var _ repository.CommentManager[string] = (*commentRepository)(nil)
 
-func newCommentRepository(psql *postgres) repository.CommentManager {
+func newCommentRepository(psql *postgres) repository.CommentManager[string] {
 	return &commentRepository{db: psql.db}
 }
 
@@ -197,6 +197,10 @@ func (c *commentRepository) GetByID(ctx context.Context, commentID uuid.UUID) (*
 	return &co, nil
 }
 
+func (c *commentRepository) Search(ctx context.Context, terms ...string) ([]*model.Comment, error) {
+	panic("unimplemented")
+}
+
 // Update implements repository.CommentManager.
 func (c *commentRepository) Update(ctx context.Context, comment *model.Comment) (*model.Comment, error) {
 	const errorCaller string = "update comment"
@@ -248,85 +252,4 @@ func (c *commentRepository) Update(ctx context.Context, comment *model.Comment) 
 	}
 
 	return comment, tx.Commit(ctx)
-}
-
-// Vote implements repository.CommentManager.
-func (c *commentRepository) Vote(ctx context.Context, userID uuid.UUID, commentID uuid.UUID, vote int) (int, error) {
-	const errorCaller string = "cast vote"
-	var totalVotes int
-	tx, err := c.db.Begin(ctx)
-	if err != nil {
-		return totalVotes, fmt.Errorf("%v: %w", errorCaller, err)
-	}
-	defer tx.Rollback(ctx)
-
-	switch vote {
-	case 0:
-		_, err = tx.Exec(ctx,
-			`DELETE FROM votes v
-		 	 WHERE comment_id = $2
-		 	 	 AND user_id = $1`,
-			userID, commentID,
-		)
-	default:
-		if vote > 0 {
-			vote = 1
-		} else {
-			vote = -1
-		}
-		_, err = tx.Exec(ctx,
-			`INSERT INTO votes (comment_id, user_id, vote)
-			 VALUES ($2, $1, $3)
-			 ON CONFLICT (comment_id, user_id)
-			 DO UPDATE SET vote = $3`,
-			userID, commentID, vote,
-		)
-	}
-	if err != nil {
-		return totalVotes, fmt.Errorf("%v: %w", errorCaller, err)
-	}
-
-	if err = tx.QueryRow(ctx,
-		`SELECT votes FROM comments WHERE id = $1`,
-		commentID,
-	).Scan(&totalVotes); err != nil {
-		return totalVotes, fmt.Errorf("%v: %w", errorCaller, err)
-	}
-
-	return totalVotes, tx.Commit(ctx)
-}
-
-// Voted implements repository.CommentManager.
-func (c *commentRepository) Voted(ctx context.Context, userID uuid.UUID, commentIDs uuid.UUIDs) (map[uuid.UUID]int8, error) {
-	const errorCaller string = "cast vote"
-	result := make(map[uuid.UUID]int8, len(commentIDs))
-	if len(commentIDs) == 0 {
-		return result, nil
-	}
-	rows, err := c.db.Query(ctx,
-		`SELECT comment_id, vote FROM votes
-		 WHERE user_id = $1 AND comment_id = ANY($2)`,
-		userID, commentIDs,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%v: %w", errorCaller, err)
-	}
-	defer rows.Close()
-
-	existing := make(map[uuid.UUID]int8)
-	for rows.Next() {
-		var c uuid.UUID
-		// the value stored is a SMALLINT, 2 bytes
-		var v int16
-		if err := rows.Scan(&c, &v); err != nil {
-			return nil, fmt.Errorf("%v: %w", errorCaller, err)
-		}
-		existing[c] = int8(v)
-	}
-
-	for _, cid := range commentIDs {
-		result[cid] = existing[cid]
-	}
-
-	return result, rows.Err()
 }

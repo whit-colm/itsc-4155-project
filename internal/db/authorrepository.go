@@ -21,7 +21,7 @@ func newAuthorRepository(psql *postgres) repository.AuthorManager {
 	return &authorRepository{db: psql.db}
 }
 
-func (a *authorRepository) Books(ctx context.Context, bookID uuid.UUID) ([]*model.Book, error) {
+func (a *authorRepository) Book(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error) {
 	panic("unimplemented")
 }
 

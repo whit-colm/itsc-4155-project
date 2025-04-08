@@ -154,9 +154,9 @@ func (u *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 	return u.getByColumn(ctx, "u.id", id.String())
 }
 
-// GetByUserHandle implements repository.UserManager.
-func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (*model.User, error) {
-	return u.getByColumn(ctx, "(u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0'))", username)
+// GetByUsername implements repository.UserManager.
+func (u *userRepository) GetByUsername(ctx context.Context, username model.Username) (*model.User, error) {
+	return u.getByColumn(ctx, "(u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0'))", username.String())
 }
 
 func (u *userRepository) Permissions(ctx context.Context, userID uuid.UUID) (bool, error) {
@@ -222,13 +222,6 @@ func (u *userRepository) Update(ctx context.Context, to *model.User) (*model.Use
 	}
 
 	return to, tx.Commit(ctx)
-}
-
-func (u *userRepository) VotedComments(ctx context.Context, userID uuid.UUID) ([]*struct {
-	CommentID uuid.UUID
-	Vote      int
-}, error) {
-	panic("unimplemented")
 }
 
 func (u *userRepository) validateNewUsername(ctx context.Context, username string) (bool, error) {
