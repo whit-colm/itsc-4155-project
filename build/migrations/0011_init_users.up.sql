@@ -29,8 +29,22 @@ CREATE UNIQUE INDEX i_users_full_username ON users (
 );
 CREATE UNIQUE INDEX i_users_handle_discriminator ON users 
     (handle, discriminator);
-CREATE INDEX i_users_name ON users
-    USING GIN (to_tsvector('english', display_name));
+
+
+CREATE INDEX i_users_search ON users
+USING bm25 (
+    id, 
+    github_id, 
+    display_name, 
+    pronouns, 
+    handle, 
+    discriminator, 
+    email, 
+    avatar, 
+    superuser, 
+    created_at, 
+    updated_at
+) WITH (key_field = 'id');
 
 --------------
 -- Triggers --

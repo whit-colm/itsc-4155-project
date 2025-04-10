@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,19 +13,19 @@ import (
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-type commentRepository struct {
+type commentRepository[S comparable] struct {
 	db *pgxpool.Pool
 }
 
 // Useful to check that a type implements an interface
-var _ repository.CommentManager[string] = (*commentRepository)(nil)
+var _ repository.CommentManager[string] = (*commentRepository[string])(nil)
 
 func newCommentRepository(psql *postgres) repository.CommentManager[string] {
-	return &commentRepository{db: psql.db}
+	return &commentRepository[string]{db: psql.db}
 }
 
 // GetBookComments implements repository.CommentManager.
-func (c *commentRepository) BookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error) {
+func (c *commentRepository[S]) BookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error) {
 	const errorCaller string = "book comments"
 	comments := []*model.Comment{}
 
@@ -83,7 +84,7 @@ func (c *commentRepository) BookComments(ctx context.Context, bookID uuid.UUID) 
 }
 
 // Create implements repository.CommentManager.
-func (c *commentRepository) Create(ctx context.Context, comment *model.Comment) error {
+func (c *commentRepository[S]) Create(ctx context.Context, comment *model.Comment) error {
 	const errorCaller string = "create comment"
 	tx, err := c.db.Begin(ctx)
 	if err != nil {
@@ -130,7 +131,7 @@ func (c *commentRepository) Create(ctx context.Context, comment *model.Comment) 
 }
 
 // Delete implements repository.CommentManager.
-func (c *commentRepository) Delete(ctx context.Context, commentID uuid.UUID) error {
+func (c *commentRepository[S]) Delete(ctx context.Context, commentID uuid.UUID) error {
 	const errorCaller string = "delete comment"
 	tx, err := c.db.Begin(ctx)
 	if err != nil {
@@ -150,7 +151,7 @@ func (c *commentRepository) Delete(ctx context.Context, commentID uuid.UUID) err
 }
 
 // GetByID implements repository.CommentManager.
-func (c *commentRepository) GetByID(ctx context.Context, commentID uuid.UUID) (*model.Comment, error) {
+func (c *commentRepository[S]) GetByID(ctx context.Context, commentID uuid.UUID) (*model.Comment, error) {
 	const errorCaller string = "get comment"
 	var co model.Comment
 	var cu model.CommentUser
@@ -192,17 +193,97 @@ func (c *commentRepository) GetByID(ctx context.Context, commentID uuid.UUID) (*
 	if ed.After(co.Date.Add(5 * time.Minute)) {
 		co.Edited = ed
 	}
+
+	if un, err := model.UsernameFromComponents(hn, de); err != nil {
+		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+	} else {
+		cu.Username = un
+	}
 	co.Poster = cu
 
 	return &co, nil
 }
 
-func (c *commentRepository) Search(ctx context.Context, terms ...string) ([]*model.Comment, error) {
-	panic("unimplemented")
+// Search implements repository.CommentManager.
+func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Comment], error) {
+	const errorCaller string = "comment search"
+	var results []repository.SearchResult[model.Comment]
+
+	qStr := strings.Join(query, " ")
+	rows, err := c.db.Query(ctx,
+		`SELECT
+			 paradedb.score(id),
+		     c.id,
+			 c.book_id,
+			 c.body,
+			 c.rating,
+			 c.parent_comment_id,
+			 c.votes,
+			 c.deleted,
+			 c.created_at,
+			 c.updated_at,
+			 u.id,
+			 COALESCE(u.display_name, u.handle, 'Deleted'),
+			 COALESCE(u.pronouns, ''),
+			 COALESCE(u.handle, 'deleted user'),
+			 COALESCE(u.discriminator, 0),
+			 u.avatar
+		 FROM comments c
+		 LEFT JOIN users u ON c.poster_id = u.id
+	 	 WHERE body @@@ $1
+		 ORDER BY paradedb.score(id) DESC, updated_at DESC
+		 LIMIT $2 OFFSET $3`,
+		qStr,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	for rows.Next() {
+		var (
+			s float64
+			c model.Comment
+			u model.CommentUser
+
+			e time.Time
+			h string
+			d int16
+		)
+
+		if err = rows.Scan(
+			&s, &c.ID, &c.Book, &c.Body, &c.Rating, &c.Parent, &c.Votes,
+			&c.Deleted, &c.Date, &e, &u.DisplayName, &u.Pronouns, &h,
+			&d, &u.Avatar,
+		); err != nil {
+			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+
+		if e.After(c.Date.Add(5 * time.Minute)) {
+			c.Edited = e
+		}
+		if u.Username, err = model.UsernameFromComponents(h, d); err != nil {
+			// We don't want to abort the entire search because of a username cock-up
+			// so try with valid system username
+			if u.Username, err = model.UsernameFromString("invalid#0000"); err != nil {
+				return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			}
+		}
+
+		c.Poster = u
+		r := repository.SearchResult[model.Comment]{
+			Item:  &c,
+			Score: s,
+		}
+		results = append(results, r)
+	}
+
+	return results, rows.Err()
 }
 
 // Update implements repository.CommentManager.
-func (c *commentRepository) Update(ctx context.Context, comment *model.Comment) (*model.Comment, error) {
+func (c *commentRepository[S]) Update(ctx context.Context, comment *model.Comment) (*model.Comment, error) {
 	const errorCaller string = "update comment"
 	cc, err := c.GetByID(ctx, comment.ID)
 	if err != nil {

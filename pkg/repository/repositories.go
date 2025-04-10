@@ -44,12 +44,22 @@ type CRUDmanager[K comparable, T any] interface {
 	Delete(context.Context, K) error
 }
 
-// This is cooked for the time being. Do not use.
+// Search repository against query parameters
 //
-// In future there will be a change to the Search method adding a
-// parameter for search terms
-type Searcher[K comparable, T any] interface {
-	Search(context.Context, ...K) ([]*T, error)
+// In addition to generic search query terms,
+//
+// This method returns a generic struct of a pointer to the item and a
+// score. For multi-manager searches, use score as the merge value.
+//
+// TODO: query is string to make me not want to kill myself, should a
+// real app use that generic S?
+type Searcher[S comparable, T any] interface {
+	Search(ctx context.Context, offset, limit int, query ...string) ([]SearchResult[T], error)
+}
+
+type SearchResult[T any] struct {
+	Item  *T
+	Score float64
 }
 
 /*******************************/

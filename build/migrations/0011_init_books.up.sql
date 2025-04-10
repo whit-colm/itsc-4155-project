@@ -23,3 +23,16 @@ CREATE TABLE isbns (
 
 CREATE INDEX i_books_title ON books USING GIN (to_tsvector('english', title));
 CREATE UNIQUE INDEX i_isbns_unique_book ON isbns(book_id, isbn_type);
+
+CREATE INDEX i_books_search ON books
+USING bm25 (id, title, published)
+WITH (key_field='id');
+
+--------------
+-- Triggers --
+--------------
+
+CREATE TRIGGER t_books_set_updated_at
+BEFORE UPDATE ON books
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();

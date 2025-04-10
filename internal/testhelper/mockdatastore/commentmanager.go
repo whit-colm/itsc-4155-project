@@ -29,8 +29,18 @@ func NewInMemoryCommentManager[S comparable]() *CommentRepo[S] {
 func (r *CommentRepo[S]) BookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error) {
 	r.mut.RLock()
 	defer r.mut.RUnlock()
+	var results []*model.Comment
 
-	panic("unimplemented")
+	if _, err := r.repo.Book.GetByID(ctx, bookID); err != nil {
+		return nil, err
+	}
+	for _, c := range r.comments {
+		if c.Book == bookID {
+			results = append(results, c)
+		}
+	}
+
+	return results, nil
 }
 
 // Create implements repository.CommentManager.
@@ -58,7 +68,7 @@ func (r *CommentRepo[S]) GetByID(context.Context, uuid.UUID) (*model.Comment, er
 }
 
 // Search implements repository.CommentManager.
-func (r *CommentRepo[S]) Search(context.Context, ...S) ([]*model.Comment, error) {
+func (r *CommentRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Comment], error) {
 	r.mut.RLock()
 	defer r.mut.RUnlock()
 

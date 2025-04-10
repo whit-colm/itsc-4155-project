@@ -63,20 +63,13 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.
 
-# Useful to mitigate bloat on final image & cache pg_cron
-FROM postgres:17-alpine AS pre-db
-
-# Do not upgrade, try to ship lockstep with postgres so it's Not Our Problem
-RUN apk update && \
-    apk add postgresql-pg_cron
-
-FROM postgres:17-alpine AS db
+FROM paradedb/paradedb AS db
 
 COPY build/migrations /docker-entrypoint-initdb.d
-COPY --from=pre-db /usr/lib/postgresql17/pg_cron.so /usr/local/lib/postgresql/
-COPY --from=pre-db /usr/share/postgresql/extension/pg_cron* /usr/local/share/postgresql/extension
-RUN chown postgres:postgres /docker-entrypoint-initdb.d/* && \
-    chmod +x /docker-entrypoint-initdb.d/*.sh
+#COPY --from=pre-db /usr/lib/postgresql17/pg_cron.so /usr/local/lib/postgresql/
+#COPY --from=pre-db /usr/share/postgresql/extension/pg_cron* /usr/local/share/postgresql/extension
+#RUN chown postgres:postgres /docker-entrypoint-initdb.d/* && \
+#    chmod +x /docker-entrypoint-initdb.d/*.sh
 
 CMD ["postgres",\
     "-c",\
