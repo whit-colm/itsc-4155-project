@@ -18,7 +18,7 @@ type searchHandle[S comparable] struct {
 	comm repository.CommentManager[S]
 }
 
-func (h searchHandle[S]) Search(c *gin.Context) {
+func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 	const errorCaller string = "search"
 	// Do search query stuff
 
@@ -41,28 +41,73 @@ func (h searchHandle[S]) Search(c *gin.Context) {
 		offset = o
 	}
 
-	// Make slices for each search domain
+	results := [][]repository.AnyScoreItemer{}
 	if slices.Contains(domains, "comments") {
-		// Search comments
+		comments, err := h.comm.Search(c.Request.Context(), offset, limit, query)
+		if err != nil {
+			return http.StatusServiceUnavailable,
+				errorCaller, err
+		}
+		asi := make([]repository.AnyScoreItemer, len(comments))
+		for _, v := range comments {
+			asi = append(asi, v)
+		}
+		results = append(results, asi)
 	}
 	if slices.Contains(domains, "booktitle") {
-		// Search book titles
+		booktitle, err := h.book.Search(c.Request.Context(), offset, limit, query)
+		if err != nil {
+			return http.StatusServiceUnavailable,
+				errorCaller, err
+		}
+		asi := make([]repository.AnyScoreItemer, len(booktitle))
+		for _, v := range booktitle {
+			asi = append(asi, v)
+		}
+		results = append(results, asi)
 	}
 	if slices.Contains(domains, "authorname") {
-		// Search author names
+		authorname, err := h.athr.Search(c.Request.Context(), offset, limit, query)
+		if err != nil {
+			return http.StatusServiceUnavailable,
+				errorCaller, err
+		}
+		asi := make([]repository.AnyScoreItemer, len(authorname))
+		for _, v := range authorname {
+			asi = append(asi, v)
+		}
+		results = append(results, asi)
 	}
 
-	ret := make([]*any, 25)
-	for range limit {
+	ret := make([]any, limit)
+	for i := range ret {
 		// Effectively do the merge part of merge sort
 		// Because each slice will already be sorted by best scoring
 		// first, we simply pick which top value of the search domains
 		// has the highest out of all of them, add it to the `ret`
 		// slice, then pop said slice.
+		highestScore := struct {
+			Idx   int
+			Score float64
+		}{
+			-1, 0.0,
+		}
+		for i, v := range results {
+			if len(v) < 1 {
+				continue
+			}
+			if s := v[0].Score(); s > highestScore.Score {
+				highestScore.Idx = i
+				highestScore.Score = s
+			}
+		}
+		ret[i] = results[highestScore.Idx][0].Item()
+		results[highestScore.Idx] = results[highestScore.Idx][1:]
 	}
 	retJson, err := json.Marshal(ret)
 	if err != nil {
-		panic(err) // TODO: Not this
+		return http.StatusInternalServerError,
+			errorCaller, err
 	}
 	c.JSON(http.StatusOK, retJson)
 }

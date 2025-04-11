@@ -56,9 +56,24 @@ type Searcher[S comparable, T any] interface {
 	Search(ctx context.Context, offset, limit int, query ...string) ([]SearchResult[T], error)
 }
 
+type AnyScoreItemer interface {
+	Item() any
+	Score() float64
+}
+
+var _ AnyScoreItemer = (*SearchResult[string])(nil)
+
 type SearchResult[T any] struct {
-	Item  *T
-	Score float64
+	I *T
+	S float64
+}
+
+func (sr SearchResult[T]) Item() any {
+	return sr.I
+}
+
+func (sr SearchResult[T]) Score() float64 {
+	return sr.S
 }
 
 /*******************************/
