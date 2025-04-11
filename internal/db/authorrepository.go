@@ -92,9 +92,10 @@ func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model
 }
 
 // Search implements repository.AuthorManager.
-func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Author], error) {
+func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Author], []repository.AnyScoreItemer, error) {
 	const errorCaller string = "book search"
-	var results []repository.SearchResult[model.Author]
+	var resultsT []repository.SearchResult[model.Author]
+	var resultsASI []repository.AnyScoreItemer
 
 	qStr := strings.Join(query, " ")
 	rows, err := a.db.Query(ctx,
@@ -112,7 +113,7 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 		offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 
 	for rows.Next() {
@@ -124,15 +125,16 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 		if err = rows.Scan(
 			&s, &u.ID, &u.FamilyName, &u.GivenName,
 		); err != nil {
-			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 
 		r := repository.SearchResult[model.Author]{
 			Item:  &u,
 			Score: s,
 		}
-		results = append(results, r)
+		resultsT = append(resultsT, r)
+		resultsASI = append(resultsASI, r)
 	}
 
-	return results, rows.Err()
+	return resultsT, resultsASI, rows.Err()
 }

@@ -161,9 +161,10 @@ func (b *bookRepository[S]) GetByISBN(ctx context.Context, isbn model.ISBN) (*mo
 }
 
 // Search implements BookRepositoryManager.
-func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], error) {
+func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], []repository.AnyScoreItemer, error) {
 	const errorCaller string = "book search"
-	var results []repository.SearchResult[model.BookSummary]
+	var resultsT []repository.SearchResult[model.BookSummary]
+	var resultsASI []repository.AnyScoreItemer
 
 	qStr := strings.Join(query, " ")
 	rows, err := b.db.Query(ctx,
@@ -184,7 +185,7 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 		offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 
 	for rows.Next() {
@@ -198,23 +199,24 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 		if err = rows.Scan(
 			&s, &o.ID, &o.Title, &o.Published, &aS, &iS,
 		); err != nil {
-			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 
 		if err = json.Unmarshal(aS, &o.Authors); err != nil {
-			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		} else if err = json.Unmarshal(iS, &o.ISBNs); err != nil {
-			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 
 		r := repository.SearchResult[model.BookSummary]{
 			Item:  &o,
 			Score: s,
 		}
-		results = append(results, r)
+		resultsT = append(resultsT, r)
+		resultsASI = append(resultsASI, r)
 	}
 
-	return results, rows.Err()
+	return resultsT, resultsASI, rows.Err()
 }
 
 // Summarize implements repository.BookManager.

@@ -79,7 +79,7 @@ func (m *AuthorRepo[S]) Delete(ctx context.Context, authorID uuid.UUID) error {
 }
 
 // Search implements repository.AuthorManager.
-func (m *AuthorRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Author], error) {
+func (m *AuthorRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Author], []repository.AnyScoreItemer, error) {
 	panic("unimplemented")
 }
 

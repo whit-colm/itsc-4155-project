@@ -116,7 +116,7 @@ func (m *BookRepo[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*model.
 }
 
 // Search implements repository.BookManager.
-func (m *BookRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], error) {
+func (m *BookRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], []repository.AnyScoreItemer, error) {
 	panic("unimplemented")
 }
 

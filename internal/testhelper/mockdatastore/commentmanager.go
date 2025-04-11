@@ -68,7 +68,7 @@ func (r *CommentRepo[S]) GetByID(context.Context, uuid.UUID) (*model.Comment, er
 }
 
 // Search implements repository.CommentManager.
-func (r *CommentRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Comment], error) {
+func (r *CommentRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Comment], []repository.AnyScoreItemer, error) {
 	r.mut.RLock()
 	defer r.mut.RUnlock()
 
