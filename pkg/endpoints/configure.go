@@ -97,6 +97,9 @@ func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c
 	s := dataStore{rp.Store}
 	api.GET("/health", s.Health)
 
+	sh := searchHandle[S]{rp.Book, rp.Author, rp.Comment}
+	api.GET("/search", sh.Search)
+
 	ah = authHandle{rp.User, rp.Auth}
 	var err error
 
