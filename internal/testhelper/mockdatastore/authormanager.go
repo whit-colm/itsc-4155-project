@@ -12,22 +12,22 @@ import (
 )
 
 // AuthorRepo implements AuthorManager.
-type AuthorRepo struct {
-	book    repository.BookManager
+type AuthorRepo[S comparable] struct {
+	book    repository.BookManager[S]
 	mut     sync.RWMutex
 	authors map[uuid.UUID]*model.Author
 }
 
-var _ repository.AuthorManager = (*AuthorRepo)(nil)
+var _ repository.AuthorManager[string] = (*AuthorRepo[string])(nil)
 
-func NewInMemoryAuthorManager() *AuthorRepo {
-	return &AuthorRepo{
+func NewInMemoryAuthorManager[S comparable]() *AuthorRepo[S] {
+	return &AuthorRepo[S]{
 		authors: make(map[uuid.UUID]*model.Author),
 	}
 }
 
 // Book implements repository.AuthorManager.
-func (m *AuthorRepo) Book(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error) {
+func (m *AuthorRepo[S]) Book(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 	var result []*model.Author
@@ -47,7 +47,7 @@ func (m *AuthorRepo) Book(ctx context.Context, bookID uuid.UUID) ([]*model.Autho
 	return result, nil
 }
 
-func (m *AuthorRepo) Create(ctx context.Context, author *model.Author) error {
+func (m *AuthorRepo[S]) Create(ctx context.Context, author *model.Author) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -58,7 +58,7 @@ func (m *AuthorRepo) Create(ctx context.Context, author *model.Author) error {
 	return nil
 }
 
-func (m *AuthorRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Author, error) {
+func (m *AuthorRepo[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Author, error) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
@@ -70,7 +70,7 @@ func (m *AuthorRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Author, 
 }
 
 // Delete implements repository.AuthorManager.
-func (m *AuthorRepo) Delete(ctx context.Context, authorID uuid.UUID) error {
+func (m *AuthorRepo[S]) Delete(ctx context.Context, authorID uuid.UUID) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -78,8 +78,13 @@ func (m *AuthorRepo) Delete(ctx context.Context, authorID uuid.UUID) error {
 	return nil
 }
 
+// Search implements repository.AuthorManager.
+func (m *AuthorRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Author], error) {
+	panic("unimplemented")
+}
+
 // Update implements repository.AuthorManager.
-func (m *AuthorRepo) Update(ctx context.Context, to *model.Author) (*model.Author, error) {
+func (m *AuthorRepo[S]) Update(ctx context.Context, to *model.Author) (*model.Author, error) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 

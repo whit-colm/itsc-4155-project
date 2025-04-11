@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ar authorRepository
-	br bookRepository
+	ar authorRepository[string]
+	br bookRepository[string]
 	pg *postgres
 )
 

@@ -11,25 +11,25 @@ import (
 )
 
 // BookRepo implements BookRepo.
-type BookRepo struct {
-	athr       repository.AuthorManager
+type BookRepo[S comparable] struct {
+	athr       repository.AuthorManager[S]
 	mut        sync.RWMutex
 	books      map[uuid.UUID]*model.Book
 	byISBN     map[model.ISBN]*model.Book
 	byAuthorID map[uuid.UUID][]*model.Book
 }
 
-var _ repository.BookManager = (*BookRepo)(nil)
+var _ repository.BookManager[string] = (*BookRepo[string])(nil)
 
-func NewInMemoryBookManager() *BookRepo {
-	return &BookRepo{
+func NewInMemoryBookManager[S comparable]() *BookRepo[S] {
+	return &BookRepo[S]{
 		books:      make(map[uuid.UUID]*model.Book),
 		byISBN:     make(map[model.ISBN]*model.Book),
 		byAuthorID: make(map[uuid.UUID][]*model.Book),
 	}
 }
 
-func (m *BookRepo) reindex() {
+func (m *BookRepo[S]) reindex() {
 	// Delete old indexes
 	m.byISBN = make(map[model.ISBN]*model.Book)
 	m.byAuthorID = make(map[uuid.UUID][]*model.Book)
@@ -43,7 +43,7 @@ func (m *BookRepo) reindex() {
 	}
 }
 
-func (m *BookRepo) Create(ctx context.Context, book *model.Book) error {
+func (m *BookRepo[S]) Create(ctx context.Context, book *model.Book) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -56,7 +56,7 @@ func (m *BookRepo) Create(ctx context.Context, book *model.Book) error {
 	return nil
 }
 
-func (m *BookRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
+func (m *BookRepo[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
@@ -67,7 +67,7 @@ func (m *BookRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, erro
 	}
 }
 
-func (m *BookRepo) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
+func (m *BookRepo[S]) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -80,7 +80,7 @@ func (m *BookRepo) Update(ctx context.Context, book *model.Book) (*model.Book, e
 	return m.books[book.ID], nil
 }
 
-func (m *BookRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *BookRepo[S]) Delete(ctx context.Context, id uuid.UUID) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -93,7 +93,7 @@ func (m *BookRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (m *BookRepo) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
+func (m *BookRepo[S]) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
@@ -104,7 +104,7 @@ func (m *BookRepo) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book,
 	}
 }
 
-func (m *BookRepo) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error) {
+func (m *BookRepo[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error) {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
@@ -113,4 +113,14 @@ func (m *BookRepo) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Boo
 	} else {
 		return books, nil
 	}
+}
+
+// Search implements repository.BookManager.
+func (m *BookRepo[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], error) {
+	panic("unimplemented")
+}
+
+// Summarize implements repository.BookManager.
+func (m *BookRepo[S]) Summarize(context.Context, *model.Book) (*model.BookSummary, error) {
+	panic("unimplemented")
 }

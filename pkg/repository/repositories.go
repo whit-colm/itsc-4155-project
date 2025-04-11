@@ -18,15 +18,14 @@ import (
 //
 // TODO: I don't like this.
 type Repository[S comparable] struct {
-	Author      AuthorManager
-	Auth        AuthManager
-	Blob        BlobManager
-	Book        BookManager
-	BookSummary BookSummaryManager[S]
-	Comment     CommentManager[S]
-	User        UserManager
-	Store       StoreManager
-	Vote        VoteManager
+	Author  AuthorManager[S]
+	Auth    AuthManager
+	Blob    BlobManager
+	Book    BookManager[S]
+	Comment CommentManager[S]
+	User    UserManager
+	Store   StoreManager
+	Vote    VoteManager
 }
 
 // The most fundamental manager type, which implements primitive CRUD

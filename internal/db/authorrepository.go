@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -98,7 +97,7 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 	var results []repository.SearchResult[model.Author]
 
 	qStr := strings.Join(query, " ")
-	rows, err := b.db.Query(ctx,
+	rows, err := a.db.Query(ctx,
 		`SELECT
 			 paradedb.score(b.id),
 		     id,
@@ -118,18 +117,18 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 
 	for rows.Next() {
 		var (
-			s  float64
-			u  model.Author
+			s float64
+			u model.Author
 		)
 
 		if err = rows.Scan(
-			&s, &u.ID, &u.FamilyName, &u.GivenName
+			&s, &u.ID, &u.FamilyName, &u.GivenName,
 		); err != nil {
 			return nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 
 		r := repository.SearchResult[model.Author]{
-			Item:  &o,
+			Item:  &u,
 			Score: s,
 		}
 		results = append(results, r)

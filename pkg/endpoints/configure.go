@@ -118,7 +118,7 @@ func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c
 	profile.DELETE("/me", wrap(uh.Delete))           // Only to be used by authenticated accts
 
 	books := api.Group("/books")
-	bh = bookHandle{rp.Book}
+	bh := bookHandle[S]{rp.Book}
 	books.POST("/new", bh.AddBook).Use(AuthorizationJWT(), UserPermissions())
 	books.GET("/:id", bh.GetBookByID)
 	books.GET("/isbn/:isbn", bh.GetBookByISBN)

@@ -16,8 +16,8 @@ type InMemoryRepository[S comparable] struct {
 	Store   *StoreRepo
 	Auth    *AuthRepo
 	User    *UserRepo
-	Author  *AuthorRepo
-	Book    *BookRepo
+	Author  *AuthorRepo[S]
+	Book    *BookRepo[S]
 	Blob    *BlobRepo
 	Comment *CommentRepo[S]
 }
@@ -28,8 +28,8 @@ func NewInMemoryRepository[S comparable]() *InMemoryRepository[S] {
 		Store:   &StoreRepo{},
 		Auth:    &AuthRepo{},
 		User:    NewInMemoryUserManager(),
-		Author:  NewInMemoryAuthorManager(),
-		Book:    NewInMemoryBookManager(),
+		Author:  NewInMemoryAuthorManager[S](),
+		Book:    NewInMemoryBookManager[S](),
 		Blob:    NewInMemoryBlobManager(),
 		Comment: NewInMemoryCommentManager[S](),
 	}

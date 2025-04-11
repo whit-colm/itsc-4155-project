@@ -15,7 +15,7 @@ import (
 )
 
 type commentHandle[S comparable] struct {
-	book repository.BookManager
+	book repository.BookManager[S]
 	comm repository.CommentManager[S]
 	vote repository.VoteManager
 }
