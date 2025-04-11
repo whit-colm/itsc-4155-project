@@ -6,6 +6,11 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import CreateBook from './pages/CreateBook';
 import BookDetails from './pages/BookDetails';
+import UserProfile from './pages/UserProfile';
+import Comments from './pages/Comments';
+import Reviews from './pages/Reviews';
+import Books from './pages/Books';
+import GitHubCallback from './pages/GitHubCallback'; // Import the new callback component
 import './App.css';
 import Footer from './components/Footer';
 import logo from './logo.png';
@@ -20,31 +25,39 @@ function App() {
     return null;
   };
 
-  useEffect(() => {
-    const validateToken = async () => {
-      const token = getCookie('jwt');
-      if (token) {
-        try {
-          const response = await fetch('/api/users/me', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          if (response.status === 200) {
-            setJwt(token);
-          } else if (response.status === 401) {
-            document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; // Clear cookie
-            setJwt(null);
-          }
-        } catch (error) {
-          console.error('Error validating token:', error);
+  const validateToken = async () => {
+    const token = getCookie('jwt'); // Read token from cookie
+    if (token) {
+      try {
+        const response = await fetch('/api/user/me', {
+          headers: {
+            Authorization: `Bearer ${token}`, // Send token as Bearer authorization
+          },
+        });
+        if (response.ok) {
+          const userData = await response.json(); // Parse user data
+          console.log('Authenticated user:', userData); // Debugging
+          setJwt(token);
+        } else if (response.status === 401) {
+          // Token is expired or invalid, clear it and redirect to login
+          document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+          setJwt(null);
+          window.location.href = '/api/auth/github/login';
+        } else {
+          console.error(`Failed to validate token: ${response.statusText}`);
         }
+      } catch (error) {
+        console.error('Error validating token:', error);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
+    // Validate the token on app load
     validateToken();
 
-    const interval = setInterval(validateToken, 5 * 60 * 1000); // Validate every 5 minutes
+    // Periodically validate the token every 5 minutes
+    const interval = setInterval(validateToken, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -68,6 +81,9 @@ function App() {
               </li>
               <li>
                 <Link to="/search">Search</Link>
+              </li>
+              <li>
+                <Link to="/books">Books</Link>
               </li>
               {!jwt && (
                 <li>
@@ -96,9 +112,14 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<Search />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/profile" element={<Profile jwt={jwt} />} />
+          <Route path="/profile" element={<Profile jwt={jwt} setJwt={setJwt} />} />
           <Route path="/create-book" element={<CreateBook />} />
-          <Route path="/books/:uuid" element={<BookDetails />} />
+          <Route path="/books/:uuid" element={<BookDetails jwt={jwt} />} />
+          <Route path="/user/:userId" element={<UserProfile jwt={jwt} />} />
+          <Route path="/comments" element={<Comments jwt={jwt} />} />
+          <Route path="/books/:uuid/reviews" element={<Reviews jwt={jwt} />} />
+          <Route path="/books" element={<Books jwt={jwt} />} />
+          <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
         </Routes>
         <Footer />
       </Router>

@@ -1,4 +1,4 @@
-package testhelper
+package dummyvalues
 
 import (
 	"github.com/google/uuid"

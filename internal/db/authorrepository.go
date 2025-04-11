@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -10,23 +11,23 @@ import (
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-type authorRepository struct {
+type authorRepository[S comparable] struct {
 	db *pgxpool.Pool
 }
 
 // Useful to check that a type implements an interface
-var _ repository.AuthorManager = (*authorRepository)(nil)
+var _ repository.AuthorManager[string] = (*authorRepository[string])(nil)
 
-func newAuthorRepository(psql *postgres) repository.AuthorManager {
-	return &authorRepository{db: psql.db}
+func newAuthorRepository(psql *postgres) repository.AuthorManager[string] {
+	return &authorRepository[string]{db: psql.db}
 }
 
-func (a *authorRepository) Books(ctx context.Context, bookID uuid.UUID) ([]*model.Book, error) {
+func (a *authorRepository[S]) Book(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error) {
 	panic("unimplemented")
 }
 
 // Create implements repository.AuthorManager.
-func (a *authorRepository) Create(ctx context.Context, author *model.Author) error {
+func (a *authorRepository[S]) Create(ctx context.Context, author *model.Author) error {
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -46,12 +47,12 @@ func (a *authorRepository) Create(ctx context.Context, author *model.Author) err
 }
 
 // Update implements repository.BookManager.
-func (b *authorRepository) Update(ctx context.Context, to *model.Author) (*model.Author, error) {
+func (a *authorRepository[S]) Update(ctx context.Context, to *model.Author) (*model.Author, error) {
 	panic("unimplemented")
 }
 
 // Delete implements repository.AuthorManager.
-func (a *authorRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (a *authorRepository[S]) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -70,7 +71,7 @@ func (a *authorRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetByID implements repository.AuthorManager.
-func (a *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Author, error) {
+func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Author, error) {
 	var author model.Author
 
 	if err := a.db.QueryRow(ctx,
@@ -91,9 +92,49 @@ func (a *authorRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Au
 }
 
 // Search implements repository.AuthorManager.
-//
-// Note that this is currently cooked, and just returns all authors in the db
-// at a later time updates will be made to allow for search parameters.
-func (a *authorRepository) Search(ctx context.Context) ([]model.Author, error) {
-	panic("unimplemented!")
+func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Author], []repository.AnyScoreItemer, error) {
+	const errorCaller string = "book search"
+	var resultsT []repository.SearchResult[model.Author]
+	var resultsASI []repository.AnyScoreItemer
+
+	qStr := strings.Join(query, " ")
+	rows, err := a.db.Query(ctx,
+		`SELECT
+			 paradedb.score(b.id),
+		     id,
+			 family_name,
+			 given_name,
+		 FROM authors
+	 	 WHERE family_name @@@ $1 OR given_name @@@ $1
+		 ORDER BY paradedb.score(id) DESC, family_name DESC
+		 LIMIT $2 OFFSET $3`,
+		qStr,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	for rows.Next() {
+		var (
+			s float64
+			u model.Author
+		)
+
+		if err = rows.Scan(
+			&s, &u.ID, &u.FamilyName, &u.GivenName,
+		); err != nil {
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+
+		r := repository.SearchResult[model.Author]{
+			Item:  &u,
+			Score: s,
+		}
+		resultsT = append(resultsT, r)
+		resultsASI = append(resultsASI, r)
+	}
+
+	return resultsT, resultsASI, rows.Err()
 }

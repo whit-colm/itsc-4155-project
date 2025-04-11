@@ -3,37 +3,54 @@ import '../styles/Profile.css';
 import base32 from 'hi-base32';
 import hmacSHA1 from 'crypto-js/hmac-sha1';
 
-function Profile({ jwt }) {
+function Profile({ jwt, setJwt }) { // Accept setJwt as a prop
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [favoriteGenres, setFavoriteGenres] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [userId, setUserId] = useState(''); // Add state for user ID
+  const [error, setError] = useState(''); // Add state for error message
 
   useEffect(() => {
     const fetchUserData = async () => {
-      try {
-        const response = await fetch('/api/users/me', {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        });
-        const userData = await response.json();
-        setName(userData.name);
-        setUsername(userData.username);
-        setEmail(userData.email);
-        setFavoriteGenres(userData.favoriteGenres || []);
-        setUserId(userData.id); // Set user ID from the response
-      } catch (error) {
-        console.error('Error fetching user data:', error);
+      const token = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('jwt='))
+        ?.split('=')[1]; // Read JWT from cookie
+
+      if (token) {
+        try {
+          const response = await fetch('/api/user/me', {
+            headers: {
+              Authorization: `Bearer ${token}`, // Send JWT as Bearer token
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch user data: ${response.statusText}`);
+          }
+
+          const userData = await response.json();
+          setName(userData.name);
+          setUsername(userData.username);
+          setEmail(userData.email);
+          setFavoriteGenres(userData.favoriteGenres || []);
+          setUserId(userData.id); // Set user ID from the response
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setError('Failed to fetch user data. Please try again later.');
+        }
       }
     };
 
-    if (jwt) {
-      fetchUserData();
-    }
+    fetchUserData();
   }, [jwt]);
+
+  const handleSaveJwt = (token) => {
+    localStorage.setItem('jwt', token);
+    setJwt(token); // Use setJwt from props
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -83,6 +100,7 @@ function Profile({ jwt }) {
       if (response.ok) {
         alert('Account deleted successfully.');
         document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+        localStorage.removeItem('jwt'); // Clear JWT from localStorage
         window.location.href = '/';
       } else {
         alert('Failed to delete account.');
@@ -96,6 +114,7 @@ function Profile({ jwt }) {
   return (
     <div className="profile-container">
       <h1>Profile Settings</h1>
+      {error && <p className="error-message">{error}</p>} {/* Display error message */}
       {isEditing ? (
         <form onSubmit={handleSubmit}>
           <input

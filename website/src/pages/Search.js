@@ -6,14 +6,21 @@ function Search() {
   const [results, setResults] = useState([]);
 
   const handleSearch = async () => {
-    const response = await fetch('/api/books', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-    });
-    const data = await response.json();
-    setResults(data);
+    try {
+      const response = await fetch(`/api/books?title=${encodeURIComponent(query)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+      const data = await response.json();
+      setResults(data);
+    } catch (error) {
+      console.error('Error during search:', error);
+    }
   };
 
   return (

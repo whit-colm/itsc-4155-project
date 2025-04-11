@@ -156,7 +156,7 @@ func (p *postgres) Connect(ctx context.Context, args ...any) error {
 	return nil
 }
 
-func NewRepository(uri string, timeout time.Duration) (repository.Repository, error) {
+func NewRepository(uri string, timeout time.Duration) (repository.Repository[string], error) {
 	db := &postgres{}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -166,7 +166,7 @@ func NewRepository(uri string, timeout time.Duration) (repository.Repository, er
 		db.Connect(ctx, uri, eCh)
 	})
 
-	var r repository.Repository
+	var r repository.Repository[string]
 	select {
 	case err := <-eCh:
 		if err != nil {

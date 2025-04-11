@@ -4,18 +4,18 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper/dummyvalues"
 )
 
 func TestJSONMarshal(t *testing.T) {
-	for _, v := range testhelper.ExampleBooks {
+	for _, v := range dummyvalues.ExampleBooks {
 		_, err := json.Marshal(v)
 		if err != nil {
 			t.Errorf("unable to marshal individual book %v: %s", v, err)
 		}
 	}
 
-	_, err := json.Marshal(testhelper.ExampleBooks)
+	_, err := json.Marshal(dummyvalues.ExampleBooks)
 	if err != nil {
 		t.Errorf("unable to marshal into slice: %s", err)
 	}

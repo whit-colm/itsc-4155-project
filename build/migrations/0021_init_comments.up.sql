@@ -31,3 +31,26 @@ CREATE UNIQUE INDEX i_one_user_one_review ON comments (poster_id, book_id)
 CREATE INDEX i_comments_books ON comments (book_id);
 CREATE INDEX i_comments_parent ON comments (parent_comment_id);
 CREATE INDEX i_comments_user ON comments (poster_id);
+
+CREATE INDEX i_comments_search ON comments 
+USING bm25 (
+    id,
+    book_id,
+    poster_id,
+    body,
+    rating,
+    parent_comment_id,
+    votes,
+    deleted,
+    created_at,
+    updated_at
+) WITH (key_field='id');
+
+--------------
+-- Triggers --
+--------------
+
+CREATE TRIGGER t_comments_set_updated_at
+BEFORE UPDATE ON comments
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();

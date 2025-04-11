@@ -4,33 +4,35 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-type bookRepository struct {
+type bookRepository[S comparable] struct {
 	db *pgxpool.Pool
 }
 
 // Useful to check that a type implements an interface
-var _ repository.BookManager = (*bookRepository)(nil)
+var _ repository.BookManager[string] = (*bookRepository[string])(nil)
 
-func newBookRepository(psql *postgres) repository.BookManager {
-	return &bookRepository{db: psql.db}
+func newBookRepository(psql *postgres) repository.BookManager[string] {
+	return &bookRepository[string]{db: psql.db}
 }
 
-func (b *bookRepository) Authors(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error) {
+func (b *bookRepository[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error) {
 	panic("unimplemented")
 }
 
 // Create implements BookRepositoryManager.
-func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
+func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -75,7 +77,7 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	return tx.Commit(ctx)
 }
 
-func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
+func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
 	var book model.Book
 	var published time.Time
 	var isbns []byte
@@ -123,11 +125,11 @@ func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...an
 }
 
 // Update implements repository.BookManager.
-func (b *bookRepository) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
+func (b *bookRepository[S]) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
 	panic("unimplemented")
 }
 
-func (b *bookRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (b *bookRepository[S]) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -149,16 +151,75 @@ func (b *bookRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetByID implements BookRepositoryManager.
-func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
+func (b *bookRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
 	return b.getWhere(ctx, "b.id = $1", id.String())
 }
 
 // GetByISBN implements BookRepositoryManager.
-func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
+func (b *bookRepository[S]) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
 	return b.getWhere(ctx, "i.isbn = $1", isbn.String())
 }
 
 // Search implements BookRepositoryManager.
-func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
+func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], []repository.AnyScoreItemer, error) {
+	const errorCaller string = "book search"
+	var resultsT []repository.SearchResult[model.BookSummary]
+	var resultsASI []repository.AnyScoreItemer
+
+	qStr := strings.Join(query, " ")
+	rows, err := b.db.Query(ctx,
+		`SELECT
+			 paradedb.score(b.id),
+		     b.id,
+			 b.title,
+			 v.published,
+			 v.authors,
+			 v.isbns,
+		 FROM books b
+		 LEFT JOIN v_books_summary ON c.poster_id = u.id
+	 	 WHERE b.title @@@ $1
+		 ORDER BY paradedb.score(b.id) DESC, v.title DESC
+		 LIMIT $2 OFFSET $3`,
+		qStr,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	for rows.Next() {
+		var (
+			s  float64
+			o  model.BookSummary
+			aS []byte
+			iS []byte
+		)
+
+		if err = rows.Scan(
+			&s, &o.ID, &o.Title, &o.Published, &aS, &iS,
+		); err != nil {
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+
+		if err = json.Unmarshal(aS, &o.Authors); err != nil {
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
+		} else if err = json.Unmarshal(iS, &o.ISBNs); err != nil {
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+
+		r := repository.SearchResult[model.BookSummary]{
+			Item:  &o,
+			Score: s,
+		}
+		resultsT = append(resultsT, r)
+		resultsASI = append(resultsASI, r)
+	}
+
+	return resultsT, resultsASI, rows.Err()
+}
+
+// Summarize implements repository.BookManager.
+func (b *bookRepository[S]) Summarize(context.Context, *model.Book) (*model.BookSummary, error) {
 	panic("unimplemented")
 }

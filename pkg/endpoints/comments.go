@@ -14,14 +14,18 @@ import (
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-type commentHandle struct {
-	book repository.BookManager
-	comm repository.CommentManager
+type commentHandle[S comparable] struct {
+	book repository.BookManager[S]
+	comm repository.CommentManager[S]
+	vote repository.VoteManager
 }
 
-var ch commentHandle
+// TODO: This is not where I want to concrete this...
+//
+// Yes I know it was a Very dirty yucky hack in the first place
+// var ch commentHandle[comparable]
 
-func (ch *commentHandle) BookReviews(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) BookReviews(c *gin.Context) (int, string, error) {
 	const errorCaller string = "get book reviews"
 	bookID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -37,7 +41,7 @@ func (ch *commentHandle) BookReviews(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Get(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Get(c *gin.Context) (int, string, error) {
 	const errorCaller string = "get comment"
 	commentID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -53,7 +57,7 @@ func (ch *commentHandle) Get(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Post(c *gin.Context) (int, string, error) {
 	const errorCaller string = "post new comment"
 	// The user ID parameter must be set.
 	tokenUserID, err := wrapGinContextUserID(c)
@@ -104,7 +108,7 @@ func (ch *commentHandle) Post(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Edit(c *gin.Context) (int, string, error) {
 	const errorCaller string = "edit comment"
 	// A request must be authenticated to access this page.
 	userIDParam, err := wrapGinContextUserID(c)
@@ -208,7 +212,7 @@ func (ch *commentHandle) Edit(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Delete(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Delete(c *gin.Context) (int, string, error) {
 	const errorCaller string = "delete comment"
 	// A request must be authenticated to access this page.
 	userIDParam, err := wrapGinContextUserID(c)
@@ -244,7 +248,7 @@ func (ch *commentHandle) Delete(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Vote(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Vote(c *gin.Context) (int, string, error) {
 	const errorCaller string = "vote on comment"
 	// Get User ID (required) from middleware
 	userID, err := wrapGinContextUserID(c)
@@ -273,7 +277,7 @@ func (ch *commentHandle) Vote(c *gin.Context) (int, string, error) {
 			fmt.Errorf("%v: %w", errorCaller, err)
 	}
 
-	total, err := ch.comm.Vote(c.Request.Context(), userID, commentID, vote)
+	total, err := ch.vote.Vote(c.Request.Context(), userID, commentID, vote)
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -285,7 +289,7 @@ func (ch *commentHandle) Vote(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Voted(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Voted(c *gin.Context) (int, string, error) {
 	const errorCaller string = "get comment vote"
 	// Get User ID (required) from middleware
 	userID, err := wrapGinContextUserID(c)
@@ -306,7 +310,7 @@ func (ch *commentHandle) Voted(c *gin.Context) (int, string, error) {
 			fmt.Errorf("%v: %w", errorCaller, err)
 	}
 
-	vMap, err := ch.comm.Voted(c.Request.Context(), userID, uuid.UUIDs{commentID})
+	vMap, err := ch.vote.Voted(c.Request.Context(), userID, uuid.UUIDs{commentID})
 	if err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
@@ -322,7 +326,7 @@ func (ch *commentHandle) Voted(c *gin.Context) (int, string, error) {
 	return http.StatusOK, "", nil
 }
 
-func (ch *commentHandle) Votes(c *gin.Context) (int, string, error) {
+func (ch *commentHandle[S]) Votes(c *gin.Context) (int, string, error) {
 	const errorCaller string = "get all votes on book"
 	// Get User ID (required) from middleware
 	userID, err := wrapGinContextUserID(c)
@@ -362,7 +366,7 @@ func (ch *commentHandle) Votes(c *gin.Context) (int, string, error) {
 		return h, s, err
 	}
 
-	if votes, err := ch.comm.Voted(c.Request.Context(), userID, ids); err != nil {
+	if votes, err := ch.vote.Voted(c.Request.Context(), userID, ids); err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	} else {
 		c.JSON(http.StatusOK, votes)

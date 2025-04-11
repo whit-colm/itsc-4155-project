@@ -5,7 +5,8 @@
 # we do this by sinning :)
 
 cat << EOM | psql -U "${POSTGRES_USER}" -d postgres -f -
-CREATE EXTENSION pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
 SELECT cron.schedule_in_database(
     'blob-cache-clean-expired', 
     '*/15 * * * *', 

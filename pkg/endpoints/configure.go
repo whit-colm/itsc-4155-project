@@ -89,13 +89,16 @@ func (j jsonParsableError) MarshalJSON() ([]byte, error) {
 var conf *oauth2.Config
 
 // Configure all backend endpoints
-func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) {
+func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c *oauth2.Config) {
 	conf = c
 
 	api := router.Group("/api")
 
 	s := dataStore{rp.Store}
 	api.GET("/health", s.Health)
+
+	sh := searchHandle[S]{rp.Book, rp.Author, rp.Comment}
+	api.GET("/search", wrap(sh.Search))
 
 	ah = authHandle{rp.User, rp.Auth}
 	var err error
@@ -118,8 +121,7 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 	profile.DELETE("/me", wrap(uh.Delete))           // Only to be used by authenticated accts
 
 	books := api.Group("/books")
-	bh = bookHandle{rp.Book}
-	books.GET("", bh.GetBooks)
+	bh := bookHandle[S]{rp.Book}
 	books.POST("/new", bh.AddBook).Use(AuthorizationJWT(), UserPermissions())
 	books.GET("/:id", bh.GetBookByID)
 	books.GET("/isbn/:isbn", bh.GetBookByISBN)
@@ -127,7 +129,7 @@ func Configure(router *gin.Engine, rp *repository.Repository, c *oauth2.Config) 
 
 	comments := api.Group("/comments")
 	comments.Use(AuthorizationJWT())
-	ch = commentHandle{rp.Book, rp.Comment}
+	ch := commentHandle[S]{rp.Book, rp.Comment, rp.Vote}
 	books.GET("/:id/reviews", wrap(ch.BookReviews))
 	books.GET("/:id/reviews/votes", wrap(ch.Votes)) // Only to be used by authenticated accts
 	books.POST("/:id/reviews", wrap(ch.Post))       // Only to be used by authenticated accts
