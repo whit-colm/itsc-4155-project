@@ -92,20 +92,18 @@ type BlobManager interface {
 /*** BOOKS, AUTHORS, GENRES ***/
 /******************************/
 
-type AuthorManager interface {
+type AuthorManager[S comparable] interface {
 	CRUDmanager[uuid.UUID, model.Author]
+	Searcher[S, model.Author]
 	Book(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error)
 }
 
-type BookManager interface {
+type BookManager[S comparable] interface {
 	CRUDmanager[uuid.UUID, model.Book]
-	GetByISBN(context.Context, model.ISBN) (*model.Book, error)
-	Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error)
-}
-
-type BookSummaryManager[S comparable] interface {
 	Searcher[S, model.BookSummary]
 	Summarize(context.Context, *model.Book) (*model.BookSummary, error)
+	GetByISBN(context.Context, model.ISBN) (*model.Book, error)
+	Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error)
 }
 
 /*************************/

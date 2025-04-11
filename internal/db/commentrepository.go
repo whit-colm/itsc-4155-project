@@ -212,7 +212,7 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 	qStr := strings.Join(query, " ")
 	rows, err := c.db.Query(ctx,
 		`SELECT
-			 paradedb.score(id),
+			 paradedb.score(c.id),
 		     c.id,
 			 c.book_id,
 			 c.body,
@@ -230,7 +230,7 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 			 u.avatar
 		 FROM comments c
 		 LEFT JOIN users u ON c.poster_id = u.id
-	 	 WHERE body @@@ $1
+	 	 WHERE c.body @@@ $1
 		 ORDER BY paradedb.score(id) DESC, updated_at DESC
 		 LIMIT $2 OFFSET $3`,
 		qStr,

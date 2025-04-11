@@ -16,23 +16,23 @@ import (
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-type bookRepository struct {
+type bookRepository[S comparable] struct {
 	db *pgxpool.Pool
 }
 
 // Useful to check that a type implements an interface
-var _ repository.BookManager = (*bookRepository)(nil)
+var _ repository.BookManager[string] = (*bookRepository[string])(nil)
 
-func newBookRepository(psql *postgres) repository.BookManager {
-	return &bookRepository{db: psql.db}
+func newBookRepository(psql *postgres) repository.BookManager[string] {
+	return &bookRepository[string]{db: psql.db}
 }
 
-func (b *bookRepository) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error) {
+func (b *bookRepository[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error) {
 	panic("unimplemented")
 }
 
 // Create implements BookRepositoryManager.
-func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
+func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -77,7 +77,7 @@ func (b *bookRepository) Create(ctx context.Context, book *model.Book) error {
 	return tx.Commit(ctx)
 }
 
-func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
+func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
 	var book model.Book
 	var published time.Time
 	var isbns []byte
@@ -125,11 +125,11 @@ func (b *bookRepository) getWhere(ctx context.Context, clause string, vals ...an
 }
 
 // Update implements repository.BookManager.
-func (b *bookRepository) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
+func (b *bookRepository[S]) Update(ctx context.Context, book *model.Book) (*model.Book, error) {
 	panic("unimplemented")
 }
 
-func (b *bookRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (b *bookRepository[S]) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -151,17 +151,17 @@ func (b *bookRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetByID implements BookRepositoryManager.
-func (b *bookRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
+func (b *bookRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, error) {
 	return b.getWhere(ctx, "b.id = $1", id.String())
 }
 
 // GetByISBN implements BookRepositoryManager.
-func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
+func (b *bookRepository[S]) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Book, error) {
 	return b.getWhere(ctx, "i.isbn = $1", isbn.String())
 }
 
 // Search implements BookRepositoryManager.
-func (b *bookRepository) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], error) {
+func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], error) {
 	const errorCaller string = "book search"
 	var results []repository.SearchResult[model.BookSummary]
 
@@ -170,13 +170,13 @@ func (b *bookRepository) Search(ctx context.Context, offset int, limit int, quer
 		`SELECT
 			 paradedb.score(b.id),
 		     b.id,
-			 v.title,
+			 b.title,
 			 v.published,
 			 v.authors,
 			 v.isbns,
 		 FROM books b
 		 LEFT JOIN v_books_summary ON c.poster_id = u.id
-	 	 WHERE body @@@ $1
+	 	 WHERE b.title @@@ $1
 		 ORDER BY paradedb.score(b.id) DESC, v.title DESC
 		 LIMIT $2 OFFSET $3`,
 		qStr,
@@ -215,4 +215,9 @@ func (b *bookRepository) Search(ctx context.Context, offset int, limit int, quer
 	}
 
 	return results, rows.Err()
+}
+
+// Summarize implements repository.BookManager.
+func (b *bookRepository[S]) Summarize(context.Context, *model.Book) (*model.BookSummary, error) {
+	panic("unimplemented")
 }
