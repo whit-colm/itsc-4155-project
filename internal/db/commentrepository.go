@@ -205,9 +205,10 @@ func (c *commentRepository[S]) GetByID(ctx context.Context, commentID uuid.UUID)
 }
 
 // Search implements repository.CommentManager.
-func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Comment], error) {
+func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.Comment], []repository.AnyScoreItemer, error) {
 	const errorCaller string = "comment search"
-	var results []repository.SearchResult[model.Comment]
+	var resultsT []repository.SearchResult[model.Comment]
+	var resultsASI []repository.AnyScoreItemer
 
 	qStr := strings.Join(query, " ")
 	rows, err := c.db.Query(ctx,
@@ -238,7 +239,7 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 		offset,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 
 	for rows.Next() {
@@ -257,7 +258,7 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 			&c.Deleted, &c.Date, &e, &u.DisplayName, &u.Pronouns, &h,
 			&d, &u.Avatar,
 		); err != nil {
-			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 
 		if e.After(c.Date.Add(5 * time.Minute)) {
@@ -267,7 +268,7 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 			// We don't want to abort the entire search because of a username cock-up
 			// so try with valid system username
 			if u.Username, err = model.UsernameFromString("invalid#0000"); err != nil {
-				return nil, fmt.Errorf("%v: %w", errorCaller, err)
+				return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 			}
 		}
 
@@ -276,10 +277,11 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 			Item:  &c,
 			Score: s,
 		}
-		results = append(results, r)
+		resultsT = append(resultsT, r)
+		resultsASI = append(resultsASI, r)
 	}
 
-	return results, rows.Err()
+	return resultsT, resultsASI, rows.Err()
 }
 
 // Update implements repository.CommentManager.

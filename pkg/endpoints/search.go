@@ -43,40 +43,28 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 
 	results := [][]repository.AnyScoreItemer{}
 	if slices.Contains(domains, "comments") {
-		comments, err := h.comm.Search(c.Request.Context(), offset, limit, query)
+		_, comments, err := h.comm.Search(c.Request.Context(), offset, limit, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
 				errorCaller, err
 		}
-		asi := make([]repository.AnyScoreItemer, len(comments))
-		for _, v := range comments {
-			asi = append(asi, v)
-		}
-		results = append(results, asi)
+		results = append(results, comments)
 	}
 	if slices.Contains(domains, "booktitle") {
-		booktitle, err := h.book.Search(c.Request.Context(), offset, limit, query)
+		_, booktitle, err := h.book.Search(c.Request.Context(), offset, limit, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
 				errorCaller, err
 		}
-		asi := make([]repository.AnyScoreItemer, len(booktitle))
-		for _, v := range booktitle {
-			asi = append(asi, v)
-		}
-		results = append(results, asi)
+		results = append(results, booktitle)
 	}
 	if slices.Contains(domains, "authorname") {
-		authorname, err := h.athr.Search(c.Request.Context(), offset, limit, query)
+		_, authorname, err := h.athr.Search(c.Request.Context(), offset, limit, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
 				errorCaller, err
 		}
-		asi := make([]repository.AnyScoreItemer, len(authorname))
-		for _, v := range authorname {
-			asi = append(asi, v)
-		}
-		results = append(results, asi)
+		results = append(results, authorname)
 	}
 
 	ret := make([]any, limit)
@@ -96,12 +84,12 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 			if len(v) < 1 {
 				continue
 			}
-			if s := v[0].Score(); s > highestScore.Score {
+			if s := v[0].ScoreValue(); s > highestScore.Score {
 				highestScore.Idx = i
 				highestScore.Score = s
 			}
 		}
-		ret[i] = results[highestScore.Idx][0].Item()
+		ret[i] = results[highestScore.Idx][0].ItemAsAny()
 		results[highestScore.Idx] = results[highestScore.Idx][1:]
 	}
 	retJson, err := json.Marshal(ret)
@@ -110,4 +98,5 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 			errorCaller, err
 	}
 	c.JSON(http.StatusOK, retJson)
+	return http.StatusOK, "", nil
 }

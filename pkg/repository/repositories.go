@@ -53,27 +53,30 @@ type CRUDmanager[K comparable, T any] interface {
 // TODO: query is string to make me not want to kill myself, should a
 // real app use that generic S?
 type Searcher[S comparable, T any] interface {
-	Search(ctx context.Context, offset, limit int, query ...string) ([]SearchResult[T], error)
+	// Searches the domain given a query
+	//
+	// The two non-error return values are effectively the same, except
+	// for their types; use the AnyScoreItemer for JSON stuff and the
+	// SearchResult[T] for typed internal searches
+	Search(ctx context.Context, offset, limit int, query ...string) ([]SearchResult[T], []AnyScoreItemer, error)
 }
 
 type AnyScoreItemer interface {
-	Item() any
-	Score() float64
+	ItemAsAny() any
+	ScoreValue() float64
 }
-
-var _ AnyScoreItemer = (*SearchResult[string])(nil)
 
 type SearchResult[T any] struct {
-	I *T
-	S float64
+	Item  *T
+	Score float64
 }
 
-func (sr SearchResult[T]) Item() any {
-	return sr.I
+func (sr SearchResult[T]) ItemAsAny() any {
+	return sr.Item
 }
 
-func (sr SearchResult[T]) Score() float64 {
-	return sr.S
+func (sr SearchResult[T]) ScoreValue() float64 {
+	return sr.Score
 }
 
 /*******************************/
