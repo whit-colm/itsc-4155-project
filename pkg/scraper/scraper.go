@@ -1,29 +1,30 @@
 package scraper
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
-	"context"
+
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
-	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
+	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
 // URL for theGoogle Books API
 const (
 	googleBooksAPI = "https://www.googleapis.com/books/v1/volumes?q=isbn:%s"
-	maxContentSize = 2 * 1024 
+	maxContentSize = 2 * 1024
 )
 
 // Struct for the response from the API
 type GoogleBooksResponse struct {
-    Items []struct {
-        VolumeInfo VolumeInfo `json:"volumeInfo"`
-    } `json:"items"`
+	Items []struct {
+		VolumeInfo VolumeInfo `json:"volumeInfo"`
+	} `json:"items"`
 }
 
 // Struct to hold identifiers
@@ -34,11 +35,11 @@ type Identifier struct {
 
 // Struct for different image sizes
 type ImageLinks struct {
-    Thumbnail string `json:"thumbnail"`
-    Small     string `json:"small"`
-    Medium    string `json:"medium"`
-    Large     string `json:"large"`
-    ExtraLarge string `json:"extraLarge"`
+	Thumbnail  string `json:"thumbnail"`
+	Small      string `json:"small"`
+	Medium     string `json:"medium"`
+	Large      string `json:"large"`
+	ExtraLarge string `json:"extraLarge"`
 }
 
 // Struct for main book information
@@ -48,7 +49,7 @@ type VolumeInfo struct {
 	PublishedDate       string       `json:"publishedDate"`
 	Description         string       `json:"description"`
 	IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
-	ImageLinks         	ImageLinks   `json:"imageLinks"`
+	ImageLinks          ImageLinks   `json:"imageLinks"`
 }
 
 // Gets the book data using ISBN and converts it
@@ -80,7 +81,6 @@ func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.Bl
 	fmt.Printf("Parsed Title: %s\n", bookData.Title)
 	fmt.Printf("Parsed Authors: %v\n", bookData.Authors)
 
-
 	var published civil.Date
 	if bookData.PublishedDate != "" {
 		parsedTime, err := time.Parse("2006-01-02", bookData.PublishedDate)
@@ -103,18 +103,18 @@ func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.Bl
 	// Stores cover image
 	imageRef := uuid.UUID{}
 	if bookData.ImageLinks.Thumbnail != "" {
-    	imageRef, err = storeImage(ctx, bookData.ImageLinks.Thumbnail, blobManager)
-    	if err != nil {
-       		fmt.Printf("Warning: failed to store image (continuing without): %v\n", err)    
-    	}
+		imageRef, err = storeImage(ctx, bookData.ImageLinks.Thumbnail, blobManager)
+		if err != nil {
+			fmt.Printf("Warning: failed to store image (continuing without): %v\n", err)
+		}
 	}
 
 	// Create book model
 	book := &model.Book{
-		ID:        uuid.New(),
-		Title:     bookData.Title,
-		Author:    getFirstAuthor(bookData.Authors),
-		Published: published,
+		ID:          uuid.New(),
+		Title:       bookData.Title,
+		Author:      getFirstAuthor(bookData.Authors),
+		Published:   published,
 		ISBNs:       extractISBN(bookData.IndustryIdentifiers),
 		Description: descriptionRef,
 		CoverImage:  imageRef,
@@ -125,21 +125,21 @@ func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.Bl
 
 // extractISBN extracts the ISBN
 func extractISBN(identifiers []Identifier) []model.ISBN {
-    var isbns []model.ISBN
+	var isbns []model.ISBN
 
-    for _, id := range identifiers {
-        if id.Type == "ISBN_13" {
-            isbns = append(isbns, model.MustNewISBN(id.Identifier, model.ISBN13))
-        }
-    }
+	for _, id := range identifiers {
+		if id.Type == "ISBN_13" {
+			isbns = append(isbns, model.MustNewISBN(id.Identifier, model.ISBN13))
+		}
+	}
 
-    for _, id := range identifiers {
-        if id.Type == "ISBN_10" {
-            isbns = append(isbns, model.MustNewISBN(id.Identifier, model.ISBN10))
-        }
-    }
+	for _, id := range identifiers {
+		if id.Type == "ISBN_10" {
+			isbns = append(isbns, model.MustNewISBN(id.Identifier, model.ISBN10))
+		}
+	}
 
-    return isbns
+	return isbns
 }
 
 // storeLargeContent saves large text content

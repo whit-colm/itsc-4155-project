@@ -3,31 +3,18 @@ package scraper
 import (
 	"context"
 	"testing"
-	
-	"github.com/stretchr/testify/assert"
+
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper/mockdatastore"
 )
-
-// MockBlobManagaer is a mock implementation of BlobManager for testing
-type MockBlobManager struct{}
-
-func (m *MockBlobManager) Store(ctx context.Context, id uuid.UUID, content []byte) error {
-	return nil
-}
-
-func (m *MockBlobManager) Retrieve(ctx context.Context, id uuid.UUID) ([]byte, error) {
-	return nil, nil
-}
-
-func (m *MockBlobManager) Delete(ctx context.Context, id uuid.UUID) error {
-	return nil
-}
 
 // Test for FetchBookByISBN
 func TestFetchBookByISBN(t *testing.T) {
-	ctx := context.Background()
-	mockBlobManager := &MockBlobManager{}
-	isbn := "9780143127741" 
+	ctx := t.Context()
+	mockBlobManager := mockdatastore.NewInMemoryRepository[string]().Blob
+	isbn := "9780143127741"
 
 	book, err := FetchBookByISBN(ctx, isbn, mockBlobManager)
 	if err != nil {
@@ -40,10 +27,10 @@ func TestFetchBookByISBN(t *testing.T) {
 		t.Logf("Parsed Title: %s", book.Title)
 	}
 
-	if book.Author == "" {
-		t.Error("No Author Found")
+	if book.AuthorIDs == nil {
+		t.Error("No Authors Found")
 	} else {
-		t.Logf("Parsed Author: %s", book.Author)
+		t.Logf("Parsed Author IDs: %s", book.AuthorIDs)
 	}
 
 	if len(book.ISBNs) == 0 {
@@ -76,7 +63,7 @@ func TestExtractISBN(t *testing.T) {
 // Test for storeLargeContent
 func TestStoreLargeContent(t *testing.T) {
 	ctx := context.Background()
-	mockBlobManager := &MockBlobManager{}
+	mockBlobManager := mockdatastore.NewInMemoryRepository[string]().Blob
 	content := "This is a test description that would be over 2KB in real usage"
 
 	id, err := storeLargeContent(ctx, content, mockBlobManager)
