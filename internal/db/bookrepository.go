@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
@@ -159,6 +161,58 @@ func (b *bookRepository) GetByISBN(ctx context.Context, isbn model.ISBN) (*model
 }
 
 // Search implements BookRepositoryManager.
-func (b *bookRepository) Search(ctx context.Context) ([]model.Book, error) {
-	panic("unimplemented")
+func (b *bookRepository) Search(ctx context.Context, offset int, limit int, query ...string) ([]repository.SearchResult[model.BookSummary], error) {
+	const errorCaller string = "book search"
+	var results []repository.SearchResult[model.BookSummary]
+
+	qStr := strings.Join(query, " ")
+	rows, err := b.db.Query(ctx,
+		`SELECT
+			 paradedb.score(b.id),
+		     b.id,
+			 v.title,
+			 v.published,
+			 v.authors,
+			 v.isbns,
+		 FROM books b
+		 LEFT JOIN v_books_summary ON c.poster_id = u.id
+	 	 WHERE body @@@ $1
+		 ORDER BY paradedb.score(b.id) DESC, v.title DESC
+		 LIMIT $2 OFFSET $3`,
+		qStr,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	for rows.Next() {
+		var (
+			s  float64
+			o  model.BookSummary
+			aS []byte
+			iS []byte
+		)
+
+		if err = rows.Scan(
+			&s, &o.ID, &o.Title, &o.Published, &aS, &iS,
+		); err != nil {
+			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+
+		if err = json.Unmarshal(aS, &o.Authors); err != nil {
+			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		} else if err = json.Unmarshal(iS, &o.ISBNs); err != nil {
+			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+
+		r := repository.SearchResult[model.BookSummary]{
+			Item:  &o,
+			Score: s,
+		}
+		results = append(results, r)
+	}
+
+	return results, rows.Err()
 }

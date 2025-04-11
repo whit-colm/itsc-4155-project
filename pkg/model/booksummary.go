@@ -6,11 +6,9 @@ import (
 )
 
 type BookSummary struct {
-	ID               uuid.UUID  `json:"id"`
-	ISBNs            []ISBN     `json:"isbns"`
-	Title            string     `json:"title"`
-	AuthorID         uuid.UUID  `json:"authorId"`
-	AuthorFamilyName string     `json:"authorFamilyName"`
-	AuthorGivenName  string     `json:"authorGivenName"`
-	Published        civil.Date `json:"published"`
+	ID        uuid.UUID  `json:"id"`
+	ISBNs     []ISBN     `json:"isbns"`
+	Title     string     `json:"title"`
+	Authors   []Author   `json:"authors"`
+	Published civil.Date `json:"published"`
 }

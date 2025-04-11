@@ -1,6 +1,6 @@
 -- booksummary view gets most important details of book, minimize logic
 -- in db driver.
-CREATE VIEW v_book_summary AS
+CREATE VIEW v_books_summary AS
     SELECT 
         b.id, 
         b.title,
