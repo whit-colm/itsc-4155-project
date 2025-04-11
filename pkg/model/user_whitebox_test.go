@@ -39,14 +39,14 @@ func TestUsernameFromString_Invalid(t *testing.T) {
 	invalidInputs := []string{
 		"a#1234", // Short handle
 		"My this *is* a very long handle, isn't it?#1531",
-		"user",         // Missing discriminator
-		"user#12a4",    // Non-digit discriminator
-		"user#123",     // Short discriminator
-		"user#12345",   // Long discriminator
-		"@user#1234",   // Invalid handle character
-		" user#1234",   // Leading space (invalid)
-		"user #1234",   // trailing space (invalid)
-		"invalid#0000", // Non-protected handle with 0000
+		"user",       // Missing discriminator
+		"user#12a4",  // Non-digit discriminator
+		"user#123",   // Short discriminator
+		"user#12345", // Long discriminator
+		"@user#1234", // Invalid handle character
+		" user#1234", // Leading space (invalid)
+		"user #1234", // trailing space (invalid)
+		"user#0000",  // Non-protected handle with 0000
 	}
 
 	for _, input := range invalidInputs {
