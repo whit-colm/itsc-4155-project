@@ -1,7 +1,7 @@
 # Use multi-stage builds to keep the final image small
 
 #### Go Backend ####
-FROM golang:1.24-alpine AS backend
+FROM golang:1.24-alpine AS pre-backend
 WORKDIR /app
 
 COPY go.mod ./ 
@@ -14,7 +14,7 @@ COPY internal ./internal
 RUN go build -o jaws main.go
 
 #### React Frontend ####
-FROM node:23-alpine AS frontend
+FROM node:23-alpine AS pre-frontend
 
 WORKDIR /website
 COPY website/ ./
@@ -29,9 +29,9 @@ RUN npm install ; \
 FROM nginx:1-alpine AS app
 
 # copy outputs compiled in prior steps
-COPY --from=backend /app/jaws /app/jaws
+COPY --from=pre-backend /app/jaws /app/jaws
 RUN chown nginx:nginx /app/jaws
-COPY --from=frontend /website/build /var/www/html
+COPY --from=pre-frontend /website/build /var/www/html
 RUN chown -R nginx:nginx /var/www/html/
 # copy in backend runner to /docker-entrypoint.d/ (which nginx runs at
 # startup) and set appropriate ownership and permission bits. Also copy
@@ -63,6 +63,21 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
 
 # We do not set ENTRYPOINT or CMD; the default one with nginx works.
 
-FROM postgres:17-alpine AS psql
+# Useful to mitigate bloat on final image & cache pg_cron
+FROM postgres:17-alpine AS pre-db
 
-COPY build/migrations/ /docker-entrypoint-initdb.d/
+# Do not upgrade, try to ship lockstep with postgres so it's Not Our Problem
+RUN apk update && \
+    apk add postgresql-pg_cron
+
+FROM postgres:17-alpine AS db
+
+COPY build/migrations /docker-entrypoint-initdb.d
+COPY --from=pre-db /usr/lib/postgresql17/pg_cron.so /usr/local/lib/postgresql/
+COPY --from=pre-db /usr/share/postgresql/extension/pg_cron* /usr/local/share/postgresql/extension
+RUN chown postgres:postgres /docker-entrypoint-initdb.d/* && \
+    chmod +x /docker-entrypoint-initdb.d/*.sh
+
+CMD ["postgres",\
+    "-c",\
+    "shared_preload_libraries=pg_cron"]

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
@@ -14,6 +15,8 @@ import (
 type bookHandle struct {
 	repo repository.BookManager
 }
+
+var bh bookHandle
 
 func (bh *bookHandle) GetBooks(c *gin.Context) {
 	s, err := bh.repo.Search(c.Request.Context())
@@ -59,7 +62,7 @@ func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
 		return
 	}
 
-	id, _, err := bh.repo.GetByISBN(c.Request.Context(), isbn)
+	book, err := bh.repo.GetByISBN(c.Request.Context(), isbn)
 	if err != nil {
 		c.JSON(http.StatusNotFound,
 			jsonParsableError{Summary: "Could not find book with ISBN",
@@ -67,7 +70,7 @@ func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
 		)
 		return
 	}
-	c.Redirect(http.StatusFound, fmt.Sprintf("/api/books/%s", id))
+	c.Redirect(http.StatusFound, fmt.Sprintf("/api/books/%s", book.ID))
 }
 
 func (bh *bookHandle) AddBook(c *gin.Context) {

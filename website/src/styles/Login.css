@@ -36,3 +36,26 @@
 .login-container button:hover {
   background-color: #0056b3;
 }
+
+.github-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background-color: #24292e;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 0 auto; /* Center the button */
+}
+
+.github-login-button img.github-logo {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.github-login-button:hover {
+  background-color: #444d56;
+}
