@@ -80,7 +80,7 @@ var (
 	// either [lHandleWhtespRe] or [rHandleWhtespRe]
 	rHandleWhtespRe *regexp.Regexp
 
-	ReservedHandles []string = []string{"system", "deleted"}
+	ReservedHandles []string = []string{"system", "deleted", "invalid"}
 )
 
 func init() {

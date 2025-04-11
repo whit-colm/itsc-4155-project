@@ -100,10 +100,10 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 	qStr := strings.Join(query, " ")
 	rows, err := a.db.Query(ctx,
 		`SELECT
-			 paradedb.score(b.id),
-		     id,
+			 paradedb.score(id),
+			 id,
 			 family_name,
-			 given_name,
+			 given_name
 		 FROM authors
 	 	 WHERE family_name @@@ $1 OR given_name @@@ $1
 		 ORDER BY paradedb.score(id) DESC, family_name DESC

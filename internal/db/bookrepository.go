@@ -170,13 +170,13 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 	rows, err := b.db.Query(ctx,
 		`SELECT
 			 paradedb.score(b.id),
-		     b.id,
+			 b.id,
 			 b.title,
 			 v.published,
 			 v.authors,
-			 v.isbns,
+			 v.isbns
 		 FROM books b
-		 LEFT JOIN v_books_summary ON c.poster_id = u.id
+		 LEFT JOIN v_books_summary v ON v.id = b.id
 	 	 WHERE b.title @@@ $1
 		 ORDER BY paradedb.score(b.id) DESC, v.title DESC
 		 LIMIT $2 OFFSET $3`,

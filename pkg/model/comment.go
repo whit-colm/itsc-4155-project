@@ -37,6 +37,6 @@ type Comment struct {
 	// datastore should still 'exist' as replies will still need to
 	// reference it
 	Deleted bool      `json:"deleted,omitempty"`
-	Edited  time.Time `json:"edited"`
+	Edited  time.Time `json:"edited,omitempty"`
 	Votes   int       `json:"votes,omitempty"`
 }

@@ -1,8 +1,9 @@
 package endpoints
 
 import (
-	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,14 +29,26 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 		limit   int
 		offset  int
 	)
-	domains = strings.Split(c.Param("idx"), ",")
-	query = c.Param("q")
-	if r, err := strconv.Atoi(c.Param("r")); err != nil {
+	domains = strings.Split(c.Query("d"), ",")
+	if q, err := url.QueryUnescape(c.Query("q")); err != nil {
+		return http.StatusBadRequest,
+			"Could not parse your query as a URL-encoded string",
+			fmt.Errorf("%v: %w", errorCaller, err)
+	} else if q == "" {
+		return http.StatusBadRequest,
+			"Your query must not be empty",
+			nil
+	} else {
+		query = q
+	}
+	if r, err := strconv.Atoi(c.Query("r")); err != nil {
 		limit = 25
+	} else if r > 250 {
+		limit = 250
 	} else {
 		limit = r
 	}
-	if o, err := strconv.Atoi(c.Param("o")); err != nil {
+	if o, err := strconv.Atoi(c.Query("o")); err != nil {
 		offset = 0
 	} else {
 		offset = o
@@ -43,7 +56,8 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 
 	results := [][]repository.AnyScoreItemer{}
 	if slices.Contains(domains, "comments") {
-		_, comments, err := h.comm.Search(c.Request.Context(), offset, limit, query)
+		// TODO: find a way to do muilti-domain offsets without. this.
+		_, comments, err := h.comm.Search(c.Request.Context(), 0, limit+offset, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
 				errorCaller, err
@@ -51,7 +65,8 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 		results = append(results, comments)
 	}
 	if slices.Contains(domains, "booktitle") {
-		_, booktitle, err := h.book.Search(c.Request.Context(), offset, limit, query)
+		// TODO: find a way to do muilti-domain offsets without. this.
+		_, booktitle, err := h.book.Search(c.Request.Context(), 0, limit+offset, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
 				errorCaller, err
@@ -59,15 +74,26 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 		results = append(results, booktitle)
 	}
 	if slices.Contains(domains, "authorname") {
-		_, authorname, err := h.athr.Search(c.Request.Context(), offset, limit, query)
+		// TODO: find a way to do muilti-domain offsets without. this.
+		_, authorname, err := h.athr.Search(c.Request.Context(), 0, limit+offset, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
 				errorCaller, err
 		}
 		results = append(results, authorname)
 	}
+	if len(results) == 0 {
+		return http.StatusNotFound,
+			"Results was empty. Like Absolutely *Nothing* empty. Are you sure you provided valid domain(s)?",
+			fmt.Errorf("%v: results `%#v` for domains `%v` -> `%s`",
+				errorCaller,
+				results,
+				c.Query("d"),
+				domains,
+			)
+	}
 
-	ret := make([]any, limit)
+	ret := make([]any, limit+offset)
 	for i := range ret {
 		// Effectively do the merge part of merge sort
 		// Because each slice will already be sorted by best scoring
@@ -89,14 +115,18 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 				highestScore.Score = s
 			}
 		}
+		// If the index of the highest score is -1 we know we have
+		// exhausted all results and should cut our losses.
+		if highestScore.Idx == -1 {
+			break
+		}
+
 		ret[i] = results[highestScore.Idx][0].ItemAsAny()
 		results[highestScore.Idx] = results[highestScore.Idx][1:]
 	}
-	retJson, err := json.Marshal(ret)
-	if err != nil {
-		return http.StatusInternalServerError,
-			errorCaller, err
-	}
-	c.JSON(http.StatusOK, retJson)
+	// TODO: THIS IS A BAD BAD BAD BAD BAD WAY OF DEALING WITH OFFSETS
+	ret = ret[offset:]
+
+	c.JSON(http.StatusOK, ret)
 	return http.StatusOK, "", nil
 }

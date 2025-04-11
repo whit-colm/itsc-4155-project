@@ -226,13 +226,13 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 			 u.id,
 			 COALESCE(u.display_name, u.handle, 'Deleted'),
 			 COALESCE(u.pronouns, ''),
-			 COALESCE(u.handle, 'deleted user'),
+			 COALESCE(u.handle, 'deleted'),
 			 COALESCE(u.discriminator, 0),
 			 u.avatar
 		 FROM comments c
 		 LEFT JOIN users u ON c.poster_id = u.id
 	 	 WHERE c.body @@@ $1
-		 ORDER BY paradedb.score(id) DESC, updated_at DESC
+		 ORDER BY paradedb.score(c.id) DESC, updated_at DESC
 		 LIMIT $2 OFFSET $3`,
 		qStr,
 		limit,
@@ -255,8 +255,8 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 
 		if err = rows.Scan(
 			&s, &c.ID, &c.Book, &c.Body, &c.Rating, &c.Parent, &c.Votes,
-			&c.Deleted, &c.Date, &e, &u.DisplayName, &u.Pronouns, &h,
-			&d, &u.Avatar,
+			&c.Deleted, &c.Date, &e, &u.ID, &u.DisplayName,
+			&u.Pronouns, &h, &d, &u.Avatar,
 		); err != nil {
 			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}

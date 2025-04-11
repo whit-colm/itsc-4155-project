@@ -1,3 +1,6 @@
+CREATE EXTENSION IF NOT EXISTS pg_search;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- Create admin table. this is single things that need to be preserved
 -- but are not necessarily structured
 CREATE TABLE admin (
