@@ -149,11 +149,18 @@ func extractISBN(identifiers []Identifier) []model.ISBN {
 
 // storeLargeContent saves large text content
 func storeLargeContent(ctx context.Context, content string, blobManager repository.BlobManager) (uuid.UUID, error) {
+
 	ref := uuid.New()
-	if err := blobManager.Store(ctx, ref, []byte(content)); err != nil {
-		return uuid.UUID{}, fmt.Errorf("failed to store large content: %v", err)
-	}
-	return ref, nil
+	blob := model.Blob{
+        ID:       ref,                       
+        Content:  strings.NewReader(content), 
+        Metadata: make(map[string]string),   
+    }
+
+    if err := blobManager.Create(ctx, &blob); err != nil {
+        return uuid.UUID{}, fmt.Errorf("failed to store blob: %w", err)
+    }
+    return ref, nil
 }
 
 // storeImage downloads and stores an image
@@ -173,26 +180,40 @@ func storeImage(ctx context.Context, imageURL string, blobManager repository.Blo
 		return uuid.Nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	imageData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to read image data: %v", err)
-	}
-
 	ref := uuid.New()
-	if err := blobManager.Store(ctx, ref, imageData); err != nil {
+    blob := model.Blob{
+        ID:      ref,
+        Content: resp.Body, 
+        Metadata: map[string]string{
+            "content-type": resp.Header.Get("Content-Type"),
+            "source-url":   imageURL,
+            "size":         resp.Header.Get("Content-Length"), 
+        },
+    }
+
+    
+    if err := blobManager.Create(ctx, &blob); err != nil {
 		return uuid.Nil, fmt.Errorf("failed to store image: %v", err)
 	}
 
-	return ref, nil
+    return ref, nil
 }
 
 // StoreBook saves the data into the database
 func StoreBook(ctx context.Context, book *model.Book, bookManager repository.BookManager[*model.Book]) error {
-	err := bookManager.Create(ctx, book)
-	if err != nil {
-		return fmt.Errorf("failed to store book: %v", err)
-	}
-	return nil
+	if book == nil {
+        return fmt.Errorf("book cannot be nil")
+    }
+    
+    if book.Title == "" {
+        return fmt.Errorf("book title cannot be empty")
+    }
+    
+    err := bookManager.Create(ctx, book)
+    if err != nil {
+        return fmt.Errorf("failed to store book: %v", err)
+    }
+    return nil
 }
 
 // getFirstAuthor returns first author or "Unknown Author"
@@ -212,7 +233,7 @@ func parsePublishedDate(dateStr string) civil.Date {
 		}
 	}
 	fmt.Printf("Warning: could not parse date: %s\n", dateStr)
-	return civil.Date{} // zero value
+	return civil.Date{} 
 }
 
 // Splits a full name into given and family name
