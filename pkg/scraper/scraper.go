@@ -109,6 +109,7 @@ func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.Bl
 		}
 	}
 
+	// Parse first author name and create author model
 	firstAuthorName := getFirstAuthor(bookData.Authors)
 	author := parseSingleAuthor(firstAuthorName)
 	authorID := author.ID
@@ -202,6 +203,7 @@ func getFirstAuthor(authors []string) string {
 	return "Unknown Author"
 }
 
+// Converts a string date to civil.Date using different layouts
 func parsePublishedDate(dateStr string) civil.Date {
 	layouts := []string{"2006-01-02", "2006-01", "2006"}
 	for _, layout := range layouts {
@@ -213,6 +215,7 @@ func parsePublishedDate(dateStr string) civil.Date {
 	return civil.Date{} // zero value
 }
 
+// Splits a full name into given and family name
 func parseSingleAuthor(fullName string) *model.Author {
     fullName = strings.TrimSpace(fullName)
     if fullName == "" {
@@ -239,6 +242,7 @@ func parseSingleAuthor(fullName string) *model.Author {
 
 }
 
+// Checks if ISBN is either 10 or 13 digits
 func isValidISBN(isbn string) bool {
     cleanISBN := strings.ReplaceAll(strings.ReplaceAll(isbn, "-", ""), " ", "")
     
