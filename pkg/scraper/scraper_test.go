@@ -74,3 +74,27 @@ func TestStoreLargeContent(t *testing.T) {
 	assert.NoError(t, err, "Empty content should not error")
 	assert.Equal(t, uuid.UUID{}, id, "Empty content should return zero UUID")
 }
+
+// Test for getFirstAuthor
+func TestGetFirstAuthor(t *testing.T) {
+	assert.Equal(t, "John Doe", getFirstAuthor([]string{"John Doe", "Jane Smith"}), "Should return first author")
+	assert.Equal(t, "Unknown Author", getFirstAuthor([]string{}), "Should return default")
+}
+
+// Test for parsePublishedDate
+func TestParsePublishedDate(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"2006-01-02", "2006-01-02"},
+		{"2006-01", "2006-01-01"},
+		{"2006", "2006-01-01"},
+		{"invalid-date", "0001-01-01"}, // zero date
+	}
+
+	for _, tt := range tests {
+		date := parsePublishedDate(tt.input)
+		assert.Equal(t, tt.expected, date.String(), "Failed parsing date: "+tt.input)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"strings"
 
 	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
@@ -54,6 +55,10 @@ type VolumeInfo struct {
 
 // Gets the book data using ISBN and converts it
 func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.BlobManager) (*model.Book, error) {
+	if !isValidISBN(isbn) {
+		return nil, fmt.Errorf("invalid ISBN format")
+	}
+
 	url := fmt.Sprintf(googleBooksAPI, isbn)
 
 	resp, err := http.Get(url)
@@ -83,12 +88,7 @@ func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.Bl
 
 	var published civil.Date
 	if bookData.PublishedDate != "" {
-		parsedTime, err := time.Parse("2006-01-02", bookData.PublishedDate)
-		if err == nil {
-			published = civil.DateOf(parsedTime)
-		} else {
-			fmt.Printf("Could not parse PublishedDate: %v\n", err)
-		}
+		published = parsePublishedDate(bookData.PublishedDate)
 	}
 
 	// Stores large description
@@ -109,11 +109,15 @@ func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.Bl
 		}
 	}
 
+	firstAuthorName := getFirstAuthor(bookData.Authors)
+	author := parseSingleAuthor(firstAuthorName)
+	authorID := author.ID
+
 	// Create book model
 	book := &model.Book{
 		ID:          uuid.New(),
 		Title:       bookData.Title,
-		Author:      getFirstAuthor(bookData.Authors),
+		AuthorIDs:   uuid.UUIDs{authorID},
 		Published:   published,
 		ISBNs:       extractISBN(bookData.IndustryIdentifiers),
 		Description: descriptionRef,
@@ -182,7 +186,7 @@ func storeImage(ctx context.Context, imageURL string, blobManager repository.Blo
 }
 
 // StoreBook saves the data into the database
-func StoreBook(ctx context.Context, book *model.Book, bookManager repository.BookManager) error {
+func StoreBook(ctx context.Context, book *model.Book, bookManager repository.BookManager[*model.Book]) error {
 	err := bookManager.Create(ctx, book)
 	if err != nil {
 		return fmt.Errorf("failed to store book: %v", err)
@@ -196,4 +200,51 @@ func getFirstAuthor(authors []string) string {
 		return authors[0]
 	}
 	return "Unknown Author"
+}
+
+func parsePublishedDate(dateStr string) civil.Date {
+	layouts := []string{"2006-01-02", "2006-01", "2006"}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, dateStr); err == nil {
+			return civil.DateOf(t)
+		}
+	}
+	fmt.Printf("Warning: could not parse date: %s\n", dateStr)
+	return civil.Date{} // zero value
+}
+
+func parseSingleAuthor(fullName string) *model.Author {
+    fullName = strings.TrimSpace(fullName)
+    if fullName == "" {
+        return &model.Author{
+            ID:         uuid.New(),
+            GivenName:  "Unknown",
+            FamilyName: "Author",
+        }
+    }
+
+    if lastSpace := strings.LastIndex(fullName, " "); lastSpace != -1 {
+        return &model.Author{
+            ID:         uuid.New(),
+            GivenName:  strings.TrimSpace(fullName[:lastSpace]),
+            FamilyName: strings.TrimSpace(fullName[lastSpace+1:]),
+        }
+    }
+
+    return &model.Author{
+        ID:         uuid.New(),
+        GivenName:  fullName,
+        FamilyName: "",
+    }
+
+}
+
+func isValidISBN(isbn string) bool {
+    cleanISBN := strings.ReplaceAll(strings.ReplaceAll(isbn, "-", ""), " ", "")
+    
+    if len(cleanISBN) != 10 && len(cleanISBN) != 13 {
+        return false
+    }
+
+	return true
 }
