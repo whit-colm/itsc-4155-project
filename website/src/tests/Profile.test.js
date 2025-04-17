@@ -4,67 +4,93 @@ import Profile from '../pages/Profile';
 const mockJwt = 'mock-jwt-token';
 
 beforeEach(() => {
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
-      json: () =>
-        Promise.resolve({
-          id: 'mock-user-id',
-          name: 'John Doe',
-          username: 'johndoe',
-          email: 'johndoe@example.com',
-          favoriteGenres: ['Fiction', 'Mystery'],
-        }),
-    })
-  );
-  jest.spyOn(console, 'log').mockImplementation(() => {}); // Suppress console.log
+  global.fetch = jest.fn((url) => {
+    if (url.includes('/api/user/me')) {
+      return Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            name: 'John Doe',
+            username: 'johndoe',
+            email: 'johndoe@example.com',
+            pronouns: 'he/him',
+            avatar: 'mock-avatar-id',
+            bref_avatar: 'mock-bref-avatar-id',
+          }),
+      });
+    } else if (url.includes('/api/blob/')) {
+      return Promise.resolve({
+        blob: () => Promise.resolve(new Blob(['mock-image'], { type: 'image/png' })),
+      });
+    }
+    return Promise.reject(new Error('Unknown URL'));
+  });
 });
 
 afterEach(() => {
   jest.restoreAllMocks();
 });
 
-test('renders profile settings heading', async () => {
+test('renders Profile Settings heading', () => {
   render(<Profile jwt={mockJwt} />);
-  const headingElement = await screen.findByRole('heading', { name: /Profile Settings/i });
+  const headingElement = screen.getByText(/Profile Settings/i);
   expect(headingElement).toBeInTheDocument();
 });
 
 test('renders user information', async () => {
   render(<Profile jwt={mockJwt} />);
+
   await waitFor(() => {
-    expect(screen.getByText('Name:')).toBeInTheDocument(); // Match exact text
-    expect(screen.getByText('John Doe')).toBeInTheDocument(); // Match specific name
-    expect(screen.getByText('Username:')).toBeInTheDocument(); // Match exact text
-    expect(screen.getByText('johndoe')).toBeInTheDocument(); // Match specific username
-    expect(screen.getByText('Email:')).toBeInTheDocument(); // Match exact text
-    expect(screen.getByText('johndoe@example.com')).toBeInTheDocument(); // Match specific email
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('johndoe')).toBeInTheDocument();
+    expect(screen.getByText('johndoe@example.com')).toBeInTheDocument();
+    expect(screen.getByText('he/him')).toBeInTheDocument();
+  });
+
+  const avatarElement = screen.getByAltText("John Doe's avatar");
+  expect(avatarElement).toHaveAttribute('src', '/api/avatars/mock-avatar-id');
+});
+
+test('allows editing user information', async () => {
+  render(<Profile jwt={mockJwt} />);
+
+  const editButton = screen.getByRole('button', { name: /Edit/i });
+  fireEvent.click(editButton);
+
+  const nameInput = screen.getByPlaceholderText(/Name/i);
+  fireEvent.change(nameInput, { target: { value: 'Jane Doe' } });
+
+  const saveButton = screen.getByRole('button', { name: /Save Changes/i });
+  fireEvent.click(saveButton);
+
+  await waitFor(() => {
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
   });
 });
 
-test('renders edit button and toggles edit mode', async () => {
+test('handles account deletion', async () => {
   render(<Profile jwt={mockJwt} />);
-  const editButton = await screen.findByRole('button', { name: /Edit/i });
-  fireEvent.click(editButton);
-  expect(screen.getByRole('button', { name: /Save Changes/i })).toBeInTheDocument();
-});
 
-test('updates profile information on form submission', async () => {
-  render(<Profile jwt={mockJwt} />);
-  fireEvent.click(await screen.findByRole('button', { name: /Edit/i }));
+  // Simulate clicking the Delete Account button
+  const deleteButton = screen.getByText(/Delete Account/i);
+  fireEvent.click(deleteButton);
 
-  // Use more specific queries to avoid ambiguity
-  const nameInput = screen.getByPlaceholderText('Name');
-  fireEvent.change(nameInput, { target: { value: 'New Name' } });
+  // Wait for the TOTP input field to appear
+  const totpInput = await screen.findByPlaceholderText(/Enter TOTP code/i);
 
-  const usernameInput = screen.getByPlaceholderText('Username');
-  fireEvent.change(usernameInput, { target: { value: 'newusername' } });
+  // Simulate entering the TOTP code
+  fireEvent.change(totpInput, { target: { value: 'mock-totp-code' } });
 
-  const emailInput = screen.getByPlaceholderText('Email');
-  fireEvent.change(emailInput, { target: { value: 'newemail@example.com' } });
+  // Simulate clicking the confirm delete button
+  const confirmButton = screen.getByText(/Confirm Delete/i);
+  fireEvent.click(confirmButton);
 
-  fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
-
+  // Wait for the fetch call and verify it was made with the correct arguments
   await waitFor(() => {
-    expect(screen.queryByRole('button', { name: /Save Changes/i })).not.toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith('/api/user/me?code=mock-totp-code', {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${mockJwt}`,
+      },
+    });
   });
 });

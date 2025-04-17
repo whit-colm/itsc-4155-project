@@ -54,10 +54,15 @@ function CreateBook() {
       published,
       isbns
     };
+    const jwt = document.cookie
+      .split('; ')
+      .find((row) => row.startsWith('jwt='))
+      ?.split('=')[1]; // Retrieve JWT from cookie
     const response = await fetch('/api/books/new', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwt}`, // Include JWT for authorization
       },
       body: JSON.stringify(newBook)
     });

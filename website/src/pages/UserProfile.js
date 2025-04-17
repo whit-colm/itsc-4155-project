@@ -7,33 +7,38 @@ function UserProfile({ jwt }) {
   const [error, setError] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState(null);
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const response = await fetch(`/api/user/${userId}`, {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch user profile: ${response.statusText}`);
-        }
-        const data = await response.json();
-        setUser(data);
-
-        if (data.bref_avatar) {
-          const avatarResponse = await fetch(`/api/blob/${data.bref_avatar}`);
-          if (!avatarResponse.ok) {
-            throw new Error(`Failed to fetch avatar: ${avatarResponse.statusText}`);
-          }
-          const avatarBlob = await avatarResponse.blob();
-          setAvatarUrl(URL.createObjectURL(avatarBlob));
-        }
-      } catch (err) {
-        setError(err.message);
+  const fetchUserProfile = async (retries = 3) => {
+    try {
+      const response = await fetch(`/api/user/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user profile: ${response.statusText}`);
       }
-    };
+      const data = await response.json();
+      setUser(data);
 
+      if (data.bref_avatar) {
+        const avatarResponse = await fetch(`/api/blob/${data.bref_avatar}`);
+        if (!avatarResponse.ok) {
+          throw new Error(`Failed to fetch avatar: ${avatarResponse.statusText}`);
+        }
+        const avatarBlob = await avatarResponse.blob();
+        setAvatarUrl(URL.createObjectURL(avatarBlob));
+      }
+    } catch (err) {
+      if (retries > 0) {
+        console.warn(`Retrying fetchUserProfile... (${3 - retries + 1})`);
+        fetchUserProfile(retries - 1);
+      } else {
+        setError('Failed to load user profile. Please try again later.');
+      }
+    }
+  };
+
+  useEffect(() => {
     fetchUserProfile();
   }, [userId, jwt]);
 

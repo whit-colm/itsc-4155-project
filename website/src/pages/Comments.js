@@ -32,6 +32,31 @@ function Comments({ bookId, jwt }) {
     fetchComments();
   }, [bookId, jwt]);
 
+  const fetchVoteStatus = async (commentId) => {
+    try {
+      const response = await fetch(`/api/comments/${commentId}/vote`, {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch vote status.');
+      }
+
+      const { userVote, totalVotes } = await response.json();
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId ? { ...comment, userVote, totalVotes } : comment
+        )
+      );
+    } catch (error) {
+      console.error('Error fetching vote status:', error);
+    }
+  };
+
+  useEffect(() => {
+    comments.forEach((comment) => fetchVoteStatus(comment.id));
+  }, [comments, jwt]);
+
   const handleAddComment = async () => {
     if (!newComment.trim()) {
       setError('Comment text cannot be empty.');

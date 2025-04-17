@@ -23,7 +23,7 @@ function Login() {
           const token = data.token;
 
           if (token) {
-            document.cookie = `jwt=${token}; path=/; secure; SameSite=Strict`; // Store token in a cookie
+            document.cookie = `jwt=${token}; path=/; secure; SameSite=Strict`; // Store token in cookie
             window.location.href = '/';
           } else {
             throw new Error('Token not found in response');

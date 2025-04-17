@@ -11,6 +11,7 @@ import Comments from './pages/Comments';
 import Reviews from './pages/Reviews';
 import Books from './pages/Books';
 import GitHubCallback from './pages/GitHubCallback'; // Import the new callback component
+import Health from './pages/Health'; // Import the new Health component
 import './App.css';
 import Footer from './components/Footer';
 import logo from './logo.png';
@@ -42,12 +43,15 @@ function App() {
           // Token is expired or invalid, clear it and redirect to login
           document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
           setJwt(null);
+          alert('Your session has expired. Please log in again.');
           window.location.href = '/api/auth/github/login';
         } else {
           console.error(`Failed to validate token: ${response.statusText}`);
+          alert('An error occurred while validating your session. Please try again.');
         }
       } catch (error) {
         console.error('Error validating token:', error);
+        alert('A network error occurred while validating your session. Please check your connection.');
       }
     }
   };
@@ -120,6 +124,7 @@ function App() {
           <Route path="/books/:uuid/reviews" element={<Reviews jwt={jwt} />} />
           <Route path="/books" element={<Books jwt={jwt} />} />
           <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
+          <Route path="/health" element={<Health />} /> {/* Add health check route */}
         </Routes>
         <Footer />
       </Router>
