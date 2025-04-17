@@ -15,7 +15,7 @@ function Search({ jwt }) {
     setError(null);
     try {
       const response = await fetch(
-        `/api/search?idx=${indices.join(',')}&q=${encodeURIComponent(query)}&r=${resultsPerPage}&o=${offset}`,
+        `/api/search?d=${indices.join(',')}&q=${encodeURIComponent(query)}&r=${resultsPerPage}&o=${offset}`,
         {
           method: 'GET',
           headers: {

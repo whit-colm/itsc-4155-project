@@ -51,7 +51,7 @@ test('fetches and displays search results', async () => {
 
   await waitFor(() => {
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/search?idx=booktitle&q=Book&r=25&o=0',
+      '/api/search?d=booktitle&q=Book&r=25&o=0',
       {
         method: 'GET',
         headers: {
