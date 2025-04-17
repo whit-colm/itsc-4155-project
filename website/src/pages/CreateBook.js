@@ -8,6 +8,7 @@ function CreateBook() {
   const [published, setPublished] = useState('');
   const [isbns, setIsbns] = useState([{ type: 'isbn10', value: '' }]);
   const [errors, setErrors] = useState({});
+  const [image, setImage] = useState(null); // State for the book image
   const navigate = useNavigate(); // Initialize useNavigate
 
   const isbn10Regex = /^(?:\d[\ |-]?){9}[\d|X]$/;
@@ -45,6 +46,10 @@ function CreateBook() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleImageChange = (e) => {
+    setImage(e.target.files[0]); // Set the selected image file
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateIsbns()) {
@@ -60,13 +65,19 @@ function CreateBook() {
       .split('; ')
       .find((row) => row.startsWith('jwt='))
       ?.split('=')[1]; // Retrieve JWT from cookie
+
+    const formData = new FormData();
+    formData.append('book', JSON.stringify(newBook));
+    if (image) {
+      formData.append('image', image); // Append the image file
+    }
+
     const response = await fetch('/api/books/new', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${jwt}`, // Include JWT for authorization
       },
-      body: JSON.stringify(newBook)
+      body: formData
     });
     if (response.ok) {
       const data = await response.json();
@@ -129,6 +140,12 @@ function CreateBook() {
         {!isbns.some(isbn => isbn.type === 'isbn13') && (
           <button type="button" onClick={() => handleAddIsbn('isbn13')}>Add ISBN-13</button>
         )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageChange}
+          className="image-upload"
+        />
         <button type="submit">Create Book</button>
       </form>
     </div>

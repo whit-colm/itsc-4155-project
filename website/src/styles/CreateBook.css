@@ -79,3 +79,11 @@
   font-size: 0.9rem;
   margin-left: 10px;
 }
+
+.image-upload {
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+}
