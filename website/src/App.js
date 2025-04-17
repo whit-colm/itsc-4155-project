@@ -68,6 +68,7 @@ function App() {
   const handleLogout = () => {
     document.cookie = 'jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'; // Clear cookie
     setJwt(null); // Clear JWT from state
+    window.location.href = '/login'; // Redirect to login page
   };
 
   return (

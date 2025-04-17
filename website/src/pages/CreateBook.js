@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import '../styles/CreateBook.css';
 
 function CreateBook() {
@@ -7,6 +8,7 @@ function CreateBook() {
   const [published, setPublished] = useState('');
   const [isbns, setIsbns] = useState([{ type: 'isbn10', value: '' }]);
   const [errors, setErrors] = useState({});
+  const navigate = useNavigate(); // Initialize useNavigate
 
   const isbn10Regex = /^(?:\d[\ |-]?){9}[\d|X]$/;
   const isbn13Regex = /^(?:\d[\ |-]?){13}$/;
@@ -66,8 +68,13 @@ function CreateBook() {
       },
       body: JSON.stringify(newBook)
     });
-    const data = await response.json();
-    console.log('Book created:', data);
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Book created:', data);
+      navigate(`/books/${data.uuid}`); // Redirect to the book details page
+    } else {
+      console.error('Failed to create book:', response.statusText);
+    }
   };
 
   return (

@@ -1,27 +1,49 @@
 .user-profile-container {
-  margin: 20px;
-  padding: 10px;
+  margin: 20px auto;
+  padding: 20px;
+  max-width: 600px;
+  background-color: #ffffff;
   border: 1px solid #ddd;
-  border-radius: 5px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .user-profile-container h1 {
   font-size: 2rem;
   margin-bottom: 20px;
+  text-align: center;
+  color: #333;
 }
 
 .user-avatar {
   width: 150px;
   height: 150px;
   border-radius: 50%;
-  margin-bottom: 20px;
+  margin: 20px auto;
+  display: block;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .user-profile-container p {
   font-size: 1rem;
-  margin: 5px 0;
+  margin: 10px 0;
+  color: #555;
 }
 
 .user-profile-container strong {
   font-weight: bold;
+}
+
+.error-message {
+  color: red;
+  font-size: 1rem;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.loading-message {
+  font-size: 1rem;
+  color: #555;
+  margin-top: 10px;
+  text-align: center;
 }
