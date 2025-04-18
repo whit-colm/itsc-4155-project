@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import '../styles/UserProfile.css'; // Import the CSS file
-import defaultAvatar from 'assets/default-avatar.png'; // Assuming src/assets/default-avatar.png
 
+const defaultAvatar = '/logo192.png'; // Default avatar image path
 function UserProfile({ jwt }) {
   const { userId } = useParams(); // Get userId from URL parameters
   const [user, setUser] = useState(null);
