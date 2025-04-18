@@ -27,6 +27,9 @@ function Search({ jwt }) {
         return;
     }
 
+    // Get JWT token
+    const token = getJwt() || jwt; // Use helper function or prop
+
     try {
       const response = await fetch(
         // Use indices, query, resultsPerPage, and newOffset
@@ -35,7 +38,8 @@ function Search({ jwt }) {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${jwt}`,
+            // Conditionally add Authorization header if token exists
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
         }
       );
@@ -78,6 +82,11 @@ function Search({ jwt }) {
       }
   };
 
+  // Helper function to get JWT (can be defined outside or imported)
+  const getJwt = () => document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('jwt='))
+    ?.split('=')[1];
 
   const renderResult = (result) => {
     const type = result.apiVersion.split('.')[0];

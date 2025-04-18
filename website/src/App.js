@@ -14,12 +14,6 @@ import './App.css';
 import Footer from './components/Footer';
 import logo from './logo.png';
 
-// Wrapper component to extract UUID for BookDetails
-function BookDetailsWrapper({ jwt }) {
-  const { uuid } = useParams();
-  return <BookDetails uuid={uuid} jwt={jwt} />;
-}
-
 function App() {
   const [jwt, setJwt] = useState(null);
 
@@ -122,7 +116,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/profile" element={<Profile jwt={jwt} setJwt={setJwt} />} />
           <Route path="/create-book" element={<CreateBook />} />
-          <Route path="/books/:uuid" element={<BookDetailsWrapper jwt={jwt} />} />
+          <Route path="/books/:uuid" element={<BookDetails jwt={jwt} />} />
           <Route path="/user/:userId" element={<UserProfile jwt={jwt} />} />
           <Route path="/books" element={<Books jwt={jwt} />} />
           <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
