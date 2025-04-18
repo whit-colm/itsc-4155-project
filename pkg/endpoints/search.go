@@ -142,7 +142,7 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 
 		// Add APIVersion if possible
 		if a := item.APIVersion(); a != "" {
-			m["APIVersion"] = a
+			m["apiVersion"] = a
 		}
 
 		processed[i] = m
