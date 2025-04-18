@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const CommentApiVersion string = "comment.itsc-4155-group-project.edu.whits.io/v1"
+
 // A summary of a full user object containing only the parts relevant
 // for a comment.
 type CommentUser struct {
@@ -39,4 +41,8 @@ type Comment struct {
 	Deleted bool      `json:"deleted,omitempty"`
 	Edited  time.Time `json:"edited,omitempty"`
 	Votes   int       `json:"votes,omitempty"`
+}
+
+func (c Comment) APIVersion() string {
+	return CommentApiVersion
 }

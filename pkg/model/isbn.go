@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const ISBNApiVersion string = "isbn.itsc-4155-group-project.edu.whits.io/v1"
+
 var (
 	isbn10re *regexp.Regexp
 	isbn13re *regexp.Regexp
@@ -19,6 +21,10 @@ func init() {
 }
 
 type IsbnVersion int
+
+func (v IsbnVersion) APIVersion() string {
+	return ISBNApiVersion
+}
 
 const (
 	ISBN10 IsbnVersion = iota
