@@ -13,10 +13,11 @@ function Profile({ jwt }) {
   const [userId, setUserId] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [brefAvatar, setBrefAvatar] = useState('');
+  const [avatarUuid, setAvatarUuid] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const getJwt = () => document.cookie
     .split('; ')
@@ -70,9 +71,9 @@ function Profile({ jwt }) {
           setName(userData.name || '');
           setUsername(userData.username || '');
           setEmail(userData.email || '');
-          setUserId(userData.uuid);
+          setUserId(userData.id);
           setPronouns(userData.pronouns || '');
-          setBrefAvatar(userData.bref_avatar || '');
+          setAvatarUuid(userData.bref_avatar || '');
           fetchAvatar(userData.bref_avatar);
 
         } catch (error) {
@@ -83,7 +84,7 @@ function Profile({ jwt }) {
           setEmail('');
           setUserId('');
           setPronouns('');
-          setBrefAvatar('');
+          setAvatarUuid('');
           setAvatarUrl(null);
         }
       } else {
@@ -106,9 +107,28 @@ function Profile({ jwt }) {
       return;
     }
 
-    const updatedData = { name, username, email, pronouns };
-
     try {
+      const fetchResponse = await fetch('/api/user/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!fetchResponse.ok) {
+        const errorData = await fetchResponse.json();
+        throw new Error(errorData.summary || `Failed to fetch current user data: ${fetchResponse.statusText}`);
+      }
+      const currentUserData = await fetchResponse.json();
+
+      const updatedData = {
+        ...currentUserData,
+        id: currentUserData.id || userId,
+        name: name,
+        username: username,
+        email: email,
+        pronouns: pronouns,
+      };
+
       const response = await fetch('/api/user/me', {
         method: 'PATCH',
         headers: {
@@ -122,6 +142,14 @@ function Profile({ jwt }) {
         const errorData = await response.json();
         throw new Error(errorData.summary || 'Failed to update profile');
       }
+
+      const updatedUser = await response.json();
+      setName(updatedUser.name || '');
+      setUsername(updatedUser.username || '');
+      setEmail(updatedUser.email || '');
+      setPronouns(updatedUser.pronouns || '');
+      setAvatarUuid(updatedUser.bref_avatar || '');
+      fetchAvatar(updatedUser.bref_avatar);
 
       setSuccessMessage('Profile updated successfully!');
       setIsEditing(false);
@@ -171,18 +199,21 @@ function Profile({ jwt }) {
     }
   };
 
-  const handleAvatarUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleFileChange = (e) => {
+    setSelectedFile(e.target.files[0]);
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!selectedFile) {
+      setError('Please select an image file first.');
+      return;
+    }
 
     const token = getJwt();
     if (!token) {
       setError('Authentication error. Please log in.');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('avatar', file);
 
     setIsUploading(true);
     setError('');
@@ -193,26 +224,34 @@ function Profile({ jwt }) {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': selectedFile.type,
         },
-        body: formData,
+        body: selectedFile,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const contentType = response.headers.get("content-type");
+        let errorData;
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          errorData = await response.json();
+        } else {
+          const errorText = await response.text();
+          throw new Error(errorText || `Failed to upload avatar: ${response.statusText}`);
+        }
         throw new Error(errorData.summary || 'Failed to upload avatar.');
       }
 
       const data = await response.json();
-      setBrefAvatar(data.bref_avatar);
+      setAvatarUuid(data.bref_avatar);
       fetchAvatar(data.bref_avatar);
       setSuccessMessage('Avatar updated successfully!');
+      setSelectedFile(null);
 
     } catch (error) {
       console.error('Error uploading avatar:', error);
       setError(error.message || 'Failed to upload avatar. Please try again.');
     } finally {
       setIsUploading(false);
-      e.target.value = null;
     }
   };
 
@@ -231,16 +270,20 @@ function Profile({ jwt }) {
             onError={(e) => { e.target.onerror = null; e.target.src = defaultAvatar; }}
           />
           <label htmlFor="avatar-upload-input" className={`avatar-upload-label ${isUploading ? 'disabled' : ''}`}>
-            {isUploading ? 'Uploading...' : 'Change Avatar'}
+            Select Image
           </label>
           <input
             id="avatar-upload-input"
             type="file"
-            onChange={handleAvatarUpload}
+            onChange={handleFileChange}
             accept="image/*"
             disabled={isUploading}
             className="avatar-upload-input"
           />
+          {selectedFile && <p>Selected: {selectedFile.name}</p>}
+          <button onClick={handleAvatarUpload} disabled={!selectedFile || isUploading} className="avatar-upload-button">
+            {isUploading ? 'Uploading...' : 'Upload Avatar'}
+          </button>
         </div>
 
         {isEditing ? (
