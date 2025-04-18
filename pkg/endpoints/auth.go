@@ -139,7 +139,11 @@ func UserPermissions() gin.HandlerFunc {
 	const errorCaller string = "check user permissions"
 	return func(c *gin.Context) {
 		id, err := wrapGinContextUserID(c)
-		if err != nil {
+		if errors.Is(err, errUserIDKeyNotFound) {
+			c.Set("permissions", false)
+			c.Next()
+			return
+		} else if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized,
 				jsonParsableError{
 					Summary: "Issue parsing ID from context, are you sure you're authenticated?",

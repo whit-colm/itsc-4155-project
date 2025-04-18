@@ -44,7 +44,7 @@ func (c commentRepository[S]) queryString(clause string, search bool) string {
 			 COALESCE(c.body, ''),
 			 COALESCE(c.rating, -1.0),
 			 c.parent_comment_id,
-			 c.votes,
+			 c.vote_total,
 			 c.deleted,
 			 c.created_at,
 			 c.updated_at,

@@ -85,7 +85,7 @@ func (r *voteRepository) Vote(ctx context.Context, userID uuid.UUID, commentID u
 	}
 
 	if err = tx.QueryRow(ctx,
-		`SELECT votes FROM comments WHERE id = $1`,
+		`SELECT vote_total FROM comments WHERE id = $1`,
 		commentID,
 	).Scan(&totalVotes); err != nil {
 		return totalVotes, fmt.Errorf("%v: %w", errorCaller, err)
