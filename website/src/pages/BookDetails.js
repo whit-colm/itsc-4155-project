@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/BookDetails.css';
 import Comments from './Comments';
-import Reviews from './Reviews';
 
 function BookDetails({ uuid, jwt }) {
   const [book, setBook] = useState(null);
@@ -71,7 +70,6 @@ function BookDetails({ uuid, jwt }) {
         <p><strong>ISBN:</strong> {book.isbn}</p> {/* Simplified ISBN handling */}
       </div>
       <Comments bookId={uuid} jwt={jwt} />
-      <Reviews bookId={uuid} jwt={jwt} />
     </div>
   );
 }
