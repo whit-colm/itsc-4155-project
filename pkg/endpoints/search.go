@@ -101,7 +101,7 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 		// slice, then pop said slice.
 		highestScore := struct {
 			Idx   int
-			Score float64
+			Score float32
 		}{
 			-1, 0.0,
 		}

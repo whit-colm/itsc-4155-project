@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
@@ -24,17 +25,24 @@ func newCommentRepository(psql *postgres) repository.CommentManager[string] {
 	return &commentRepository[string]{db: psql.db}
 }
 
-// GetBookComments implements repository.CommentManager.
-func (c *commentRepository[S]) BookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error) {
-	const errorCaller string = "book comments"
-	comments := []*model.Comment{}
-
-	rows, err := c.db.Query(ctx,
-		`SELECT 
+// queryString constructs a SELECT statement for retrieving comment records from the database.
+// It optionally includes a search scoring column and uses the provided clause as a filtering condition.
+//
+// Parameters:
+//
+//	clause - The condition appended to the WHERE clause, affecting which comment rows are returned.
+//	search - A boolean toggle indicating whether to include search scoring in the result.
+//
+// Returns:
+//
+//	A fully composed SQL query string for comment retrieval, with optional search scoring.
+func (c commentRepository[S]) queryString(clause string, search bool) string {
+	return fmt.Sprintf(`SELECT
+			 %v
 			 c.id,
 			 c.book_id,
-			 c.body,
-			 c.rating,
+			 COALESCE(c.body, ''),
+			 COALESCE(c.rating, -1.0),
 			 c.parent_comment_id,
 			 c.votes,
 			 c.deleted,
@@ -43,13 +51,78 @@ func (c *commentRepository[S]) BookComments(ctx context.Context, bookID uuid.UUI
 			 u.id,
 			 COALESCE(u.display_name, u.handle, 'Deleted'),
 			 COALESCE(u.pronouns, ''),
-			 COALESCE(u.handle, 'deleted user'),
+			 COALESCE(u.handle, 'deleted'),
 			 COALESCE(u.discriminator, 0),
 			 u.avatar
 		 FROM comments c
 		 LEFT JOIN users u ON c.poster_id = u.id
-		 WHERE c.book_id = $1
-		 GROUP BY c.id`,
+		 WHERE %v`,
+		func() string {
+			if search {
+				return "paradedb.score(c.id),"
+			}
+			return ""
+		}(),
+		clause,
+	)
+}
+
+// rowsParse retrieves and parses comment data from the provided pgx.Rows.
+// If the search parameter is true, it expects an additional float32 score as
+// the first scanned column. The function then scans data into a model.Comment
+// along with associated user information, determines whether the comment
+// should be flagged as edited based on creation and update timestamps, and
+// constructs the comment's poster username using handle components. It returns
+// the populated *model.Comment, a float32 representing the comment's search
+// score, and an error if any field scanning or username construction fails.
+func (c commentRepository[S]) rowsParse(rows pgx.Rows, search bool) (*model.Comment, float32, error) {
+	var cmt model.Comment
+	var cmtUser model.CommentUser
+	var s float32
+
+	var e time.Time
+	var h string
+	var d int16
+
+	if search {
+		if err := rows.Scan(
+			&s, &cmt.ID, &cmt.Book, &cmt.Body, &cmt.Rating,
+			&cmt.Parent, &cmt.Votes, &cmt.Deleted, &cmt.Date, &e,
+			&cmtUser.ID, &cmtUser.DisplayName, &cmtUser.Pronouns, &h,
+			&d, &cmtUser.Avatar,
+		); err != nil {
+			return nil, -1.0, err
+		}
+	} else {
+		if err := rows.Scan(
+			&cmt.ID, &cmt.Book, &cmt.Body, &cmt.Rating, &cmt.Parent,
+			&cmt.Votes, &cmt.Deleted, &cmt.Date, &e, &cmtUser.ID,
+			&cmtUser.DisplayName, &cmtUser.Pronouns, &h, &d, &cmtUser.Avatar,
+		); err != nil {
+			return nil, -1.0, err
+		}
+	}
+
+	if e.After(cmt.Date.Add(5 * time.Minute)) {
+		cmt.Edited = e
+	}
+	if uname, err := model.UsernameFromComponents(h, d); err != nil {
+		return nil, -1.0, err
+	} else {
+		cmtUser.Username = uname
+	}
+	cmt.Poster = cmtUser
+
+	return &cmt, s, nil
+}
+
+// GetBookComments implements repository.CommentManager.
+func (c *commentRepository[S]) BookComments(ctx context.Context, bookID uuid.UUID) ([]*model.Comment, error) {
+	const errorCaller string = "book comments"
+	comments := []*model.Comment{}
+
+	rows, err := c.db.Query(ctx,
+		c.queryString("c.book_id = $1", false),
 		bookID,
 	)
 	if err != nil {
@@ -58,26 +131,11 @@ func (c *commentRepository[S]) BookComments(ctx context.Context, bookID uuid.UUI
 	defer rows.Close()
 
 	for rows.Next() {
-		var co model.Comment
-		var cu model.CommentUser
-
-		var ed time.Time
-		var hn string
-		var de int16
-
-		if err := rows.Scan(
-			&co.ID, &co.Book, &co.Body, &co.Rating, &co.Parent,
-			&co.Votes, &co.Deleted, &co.Date, &ed, &cu.DisplayName,
-			&cu.Pronouns, &hn, &de, &cu.Avatar,
-		); err != nil {
+		cmt, _, err := c.rowsParse(rows, false)
+		if err != nil {
 			return nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
-		if ed.After(co.Date.Add(5 * time.Minute)) {
-			co.Edited = ed
-		}
-		co.Poster = cu
-
-		comments = append(comments, &co)
+		comments = append(comments, cmt)
 	}
 
 	return comments, rows.Err()
@@ -154,54 +212,31 @@ func (c *commentRepository[S]) Delete(ctx context.Context, commentID uuid.UUID) 
 func (c *commentRepository[S]) GetByID(ctx context.Context, commentID uuid.UUID) (*model.Comment, error) {
 	const errorCaller string = "get comment"
 	var co model.Comment
-	var cu model.CommentUser
-
-	var ed time.Time
-	var hn string
-	var de int16
-
-	if err := c.db.QueryRow(ctx,
-		`SELECT 
-			 c.id,
-			 c.book_id,
-			 c.body,
-			 c.rating,
-			 c.parent_comment_id,
-			 c.votes,
-			 c.deleted,
-			 c.created_at,
-			 c.updated_at,
-			 u.id,
-			 COALESCE(u.display_name, u.handle, 'Deleted'),
-			 COALESCE(u.pronouns, ''),
-			 COALESCE(u.handle, 'deleted user'),
-			 COALESCE(u.discriminator, 0),
-			 u.avatar
-		 FROM comments c
-		 LEFT JOIN users u ON c.poster_id = u.id
-		 WHERE c.book_id = $1
-		 GROUP BY c.id`,
+	r, err := c.db.Query(ctx,
+		c.queryString("c.id = $1", false),
 		commentID,
-	).Scan(
-		&co.ID, &co.Book, &co.Body, &co.Rating, &co.Parent,
-		&co.Votes, &co.Deleted, &co.Date, &ed, &cu.DisplayName,
-		&cu.Pronouns, &hn, &de, &cu.Avatar,
-	); err != nil {
+	)
+	if err != nil {
 		return nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
+	defer r.Close()
 
-	if ed.After(co.Date.Add(5 * time.Minute)) {
-		co.Edited = ed
+	// We should only get one row back
+	multiple := false
+	for r.Next() {
+		if multiple {
+			return nil, fmt.Errorf("%v: multiple rows returned", errorCaller)
+		}
+		multiple = true
+
+		cmt, _, err := c.rowsParse(r, false)
+		if err != nil {
+			return nil, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+		co = *cmt
 	}
 
-	if un, err := model.UsernameFromComponents(hn, de); err != nil {
-		return nil, fmt.Errorf("%v: %w", errorCaller, err)
-	} else {
-		cu.Username = un
-	}
-	co.Poster = cu
-
-	return &co, nil
+	return &co, r.Err()
 }
 
 // Search implements repository.CommentManager.
@@ -212,28 +247,11 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 
 	qStr := strings.Join(query, " ")
 	rows, err := c.db.Query(ctx,
-		`SELECT
-			 paradedb.score(c.id),
-		     c.id,
-			 c.book_id,
-			 c.body,
-			 c.rating,
-			 c.parent_comment_id,
-			 c.votes,
-			 c.deleted,
-			 c.created_at,
-			 c.updated_at,
-			 u.id,
-			 COALESCE(u.display_name, u.handle, 'Deleted'),
-			 COALESCE(u.pronouns, ''),
-			 COALESCE(u.handle, 'deleted'),
-			 COALESCE(u.discriminator, 0),
-			 u.avatar
-		 FROM comments c
-		 LEFT JOIN users u ON c.poster_id = u.id
-	 	 WHERE c.body @@@ $1
-		 ORDER BY paradedb.score(c.id) DESC, updated_at DESC
-		 LIMIT $2 OFFSET $3`,
+		c.queryString(`c.body @@@ $1
+			 ORDER BY paradedb.score(c.id) DESC, updated_at DESC
+			 LIMIT $2 OFFSET $3`,
+			true,
+		),
 		qStr,
 		limit,
 		offset,
@@ -243,38 +261,13 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 	}
 
 	for rows.Next() {
-		var (
-			s float64
-			c model.Comment
-			u model.CommentUser
-
-			e time.Time
-			h string
-			d int16
-		)
-
-		if err = rows.Scan(
-			&s, &c.ID, &c.Book, &c.Body, &c.Rating, &c.Parent, &c.Votes,
-			&c.Deleted, &c.Date, &e, &u.ID, &u.DisplayName,
-			&u.Pronouns, &h, &d, &u.Avatar,
-		); err != nil {
+		c, s, err := c.rowsParse(rows, true)
+		if err != nil {
 			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 
-		if e.After(c.Date.Add(5 * time.Minute)) {
-			c.Edited = e
-		}
-		if u.Username, err = model.UsernameFromComponents(h, d); err != nil {
-			// We don't want to abort the entire search because of a username cock-up
-			// so try with valid system username
-			if u.Username, err = model.UsernameFromString("invalid#0000"); err != nil {
-				return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
-			}
-		}
-
-		c.Poster = u
 		r := repository.SearchResult[model.Comment]{
-			Item:  &c,
+			Item:  c,
 			Score: s,
 		}
 		resultsT = append(resultsT, r)

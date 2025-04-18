@@ -64,12 +64,12 @@ type Searcher[S comparable, T any] interface {
 type AnyScoreItemer interface {
 	model.APIVersioner
 	ItemAsAny() any
-	ScoreValue() float64
+	ScoreValue() float32
 }
 
 type SearchResult[T any] struct {
 	Item  *T
-	Score float64
+	Score float32
 }
 
 // We don't super-need the result to have an APIVersion, but it if it
@@ -86,7 +86,7 @@ func (sr SearchResult[T]) ItemAsAny() any {
 	return sr.Item
 }
 
-func (sr SearchResult[T]) ScoreValue() float64 {
+func (sr SearchResult[T]) ScoreValue() float32 {
 	return sr.Score
 }
 

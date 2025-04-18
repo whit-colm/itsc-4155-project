@@ -191,7 +191,7 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 
 	for rows.Next() {
 		var (
-			s  float64
+			s  float32
 			o  model.BookSummary
 			aS []byte
 			iS []byte

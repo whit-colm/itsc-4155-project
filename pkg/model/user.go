@@ -159,6 +159,7 @@ func UsernameFromString(un string) (Username, error) {
 }
 
 func UsernameFromComponents[I int16 | int](handle string, discriminator I) (Username, error) {
+	const errorCaller string = "username from components"
 	// The actual discriminator, we have to suss out generics first
 	var d int16
 	switch v := any(discriminator).(type) {
@@ -168,14 +169,15 @@ func UsernameFromComponents[I int16 | int](handle string, discriminator I) (User
 		case string:
 			if len(v) != 4 {
 				return Username{}, fmt.Errorf(
-					"create username: mismatched discriminator string length, want 4, have %d",
+					"%v: mismatched discriminator string length, want 4, have %d",
+					errorCaller,
 					len(v),
 				)
 			}
 			// Convert the string to an int
 			val, err := strconv.Atoi(v)
 			if err != nil {
-				return Username{}, fmt.Errorf("create username: %w", err)
+				return Username{}, fmt.Errorf("%v: %w", errorCaller, err)
 			}
 			dI = val
 		case int:
@@ -186,7 +188,8 @@ func UsernameFromComponents[I int16 | int](handle string, discriminator I) (User
 
 		if dI < math.MinInt16 || dI > math.MaxInt16 {
 			return Username{}, fmt.Errorf(
-				"create username: out of bounds integer, want [-32768,32767], have %d",
+				"%v: out of bounds integer, want [-32768,32767], have %d",
+				errorCaller,
 				dI,
 			)
 		}

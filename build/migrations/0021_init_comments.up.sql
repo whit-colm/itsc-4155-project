@@ -6,7 +6,7 @@ CREATE TABLE comments (
     rating REAL,
     parent_comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
     votes INTEGER NOT NULL DEFAULT 0,
-    deleted BOOLEAN DEFAULT false,
+    deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
