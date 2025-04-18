@@ -134,7 +134,7 @@ func (h *userHandle) Delete(c *gin.Context) (int, string, error) {
 	//     need to check for valid permissions
 	//  2. If the param Id is nil, we intend to delete the token user.
 	var userIDToDelete uuid.UUID
-	if paramUserID == uuid.Nil {
+	if paramUserID != uuid.Nil {
 		if !perms {
 			return http.StatusForbidden,
 				"You do not have the necessary permissions to delete other users",
