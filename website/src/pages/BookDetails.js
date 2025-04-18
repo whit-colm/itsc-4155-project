@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/BookDetails.css';
 import Comments from './Comments';
+import { useParams } from 'react-router-dom';
 
-function BookDetails({ uuid, jwt }) {
+function BookDetails({ jwt }) {
+  const { bookId } = useParams(); // Corresponds to 'id' in the API path /api/book/:id
   const [book, setBook] = useState(null);
   const [coverUrl, setCoverUrl] = useState(null);
   const [error, setError] = useState(null);
 
   const fetchBook = async (retries = 3) => {
     try {
-      const response = await fetch(`/api/books/${uuid}`, {
+      const response = await fetch(`/api/books/${bookId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -49,7 +51,7 @@ function BookDetails({ uuid, jwt }) {
 
   useEffect(() => {
     fetchBook();
-  }, [uuid, jwt]);
+  }, [bookId, jwt]);
 
   if (error) {
     return <div className="error-message">Error: {error}</div>;
@@ -69,7 +71,7 @@ function BookDetails({ uuid, jwt }) {
         <p><strong>Published:</strong> {new Date(book.published).toLocaleDateString()}</p>
         <p><strong>ISBN:</strong> {book.isbn}</p> {/* Simplified ISBN handling */}
       </div>
-      <Comments bookId={uuid} jwt={jwt} />
+      <Comments bookId={bookId} jwt={jwt} />
     </div>
   );
 }

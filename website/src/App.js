@@ -112,7 +112,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/profile" element={<Profile jwt={jwt} setJwt={setJwt} />} />
           <Route path="/create-book" element={<CreateBook />} />
-          <Route path="/books/:uuid" element={<BookDetails jwt={jwt} />} />
+          <Route path="/books/:bookId" element={<BookDetails jwt={jwt} />} />
           <Route path="/user/:userId" element={<UserProfile jwt={jwt} />} />
           <Route path="/books" element={<Books jwt={jwt} />} />
           <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
