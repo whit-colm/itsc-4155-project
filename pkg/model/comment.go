@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const CommentApiVersion string = "comment.itsc-4155-group-project.edu.whits.io/v1"
+const CommentApiVersion string = "comment.itsc-4155-group-project.edu.whits.io/v1alpha1"
 
 // A summary of a full user object containing only the parts relevant
 // for a comment.

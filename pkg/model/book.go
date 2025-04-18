@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const BookApiVersion string = "book.itsc-4155-group-project.edu.whits.io/v1"
+const BookApiVersion string = "book.itsc-4155-group-project.edu.whits.io/v1alpha1"
 
 // An Books
 type Book struct {
