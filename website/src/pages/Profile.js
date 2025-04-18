@@ -64,7 +64,7 @@ async function genDeleteTOTP(uuid, deltaSeconds = 0) {
     return otp.toString().padStart(6, '0');
   } catch (error) {
       console.error("Error generating TOTP:", error);
-      throw new Error("Could not generate deletion code. Ensure your browser supports Web Crypto API.");
+      throw new Error("Could not generate deletion code. Please ensure your browser supports the Web Crypto API and try again.");
   }
 }
 // --- End TOTP Helper Functions ---
@@ -473,10 +473,12 @@ function Profile({ jwt }) {
               onChange={(e) => setDeletionCodeInput(e.target.value)}
               placeholder="Enter 6-digit code"
               maxLength="6"
+              minLength="6"
+              pattern="\d{6}"
               disabled={isSubmitting}
             />
             <div className="form-actions">
-              <button onClick={handleConfirmDelete} disabled={isSubmitting || !deletionCodeInput.trim() || deletionCodeInput.length !== 6} className="delete-button">
+              <button onClick={handleConfirmDelete} disabled={isSubmitting || deletionCodeInput.length !== 6} className="delete-button">
                 {isSubmitting ? 'Deleting...' : 'Confirm Delete'}
               </button>
               <button type="button" onClick={() => setShowDeleteConfirm(false)} disabled={isSubmitting} className="cancel-button">
