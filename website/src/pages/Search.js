@@ -6,11 +6,11 @@ function Search({ jwt }) {
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [indices, setIndices] = useState(['booktitle']); // Default to book titles
+  const [indices, setIndices] = useState(['booktitle']);
   const [resultsPerPage, setResultsPerPage] = useState(25);
 
   const handleSearch = async (retries = 3) => {
-    const offset = 0; // Always start from the beginning
+    const offset = 0;
     setLoading(true);
     setError(null);
     try {
@@ -24,9 +24,7 @@ function Search({ jwt }) {
           },
         }
       );
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
+      if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
       setResults(data.results || []);
     } catch (error) {
@@ -41,56 +39,92 @@ function Search({ jwt }) {
     }
   };
 
+  const renderResult = (result) => {
+    if (!result.apiVersion) {
+      console.error('Result missing apiVersion', result);
+      return null;
+    }
+    
+    const type = result.apiVersion.split('.')[0];
+    return (
+      <li key={result.uuid} className="search-result-item">
+        <span className={`result-type ${type}`}>
+          {type.charAt(0).toUpperCase() + type.slice(1)}
+        </span>
+        <div className="result-content">
+          {type === 'book' && (
+            <>
+              <h2>{result.title}</h2>
+              <p><strong>Author:</strong> {result.author}</p>
+              {result.published && (
+                <p><strong>Published:</strong> {new Date(result.published).toLocaleDateString()}</p>
+              )}
+            </>
+          )}
+          {type === 'author' && (
+            <h2>{result.family_name}, {result.given_name}</h2>
+          )}
+          {type === 'comment' && (
+            <>
+              <p><strong>Comment:</strong> {result.body}</p>
+              <div className="comment-metrics">
+                <span>Rating: {Math.round(result.rating * 100)}%</span>
+                <span>Votes: {result.votes}</span>
+              </div>
+            </>
+          )}
+        </div>
+      </li>
+    );
+  };
+
   return (
     <div className="search-container">
       <h1>Book Search</h1>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Enter book title, author, or genre"
-        className="search-input"
-      />
-      <button onClick={handleSearch} disabled={loading}>
-        Search
-      </button>
-      {loading && <p>Loading...</p>}
+      <div className="search-controls">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Enter book title, author, or genre"
+          className="search-input"
+        />
+        <button onClick={handleSearch} disabled={loading}>
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </div>
+
       {error && <p className="error-message">Error: {error}</p>}
-      <div className="search-filters">
-        <label>
-          Search in:
+
+      <div className="search-config">
+        <div className="config-group">
+          <label>Search in:</label>
           <select
             multiple
             value={indices}
-            onChange={(e) =>
-              setIndices(Array.from(e.target.selectedOptions, (option) => option.value))
-            }
+            onChange={(e) => setIndices(Array.from(e.target.selectedOptions, (option) => option.value))}
           >
             <option value="comments">Comments</option>
             <option value="booktitle">Book Titles</option>
             <option value="authorname">Author Names</option>
-            <option value="isbn">ISBN</option> {/* Add ISBN as a search index */}
+            <option value="isbn">ISBN</option>
           </select>
-        </label>
-        <label>
-          Results per page:
+        </div>
+
+        <div className="config-group">
+          <label>Results per page:</label>
           <input
             type="number"
             value={resultsPerPage}
-            onChange={(e) => setResultsPerPage(Number(e.target.value))}
+            onChange={(e) => setResultsPerPage(Math.min(100, Math.max(1, e.target.value)))}
             min="1"
             max="100"
           />
-        </label>
+        </div>
       </div>
+
       <ul className="search-results">
-        {results.map((result) => (
-          <li key={result.uuid}>
-            <h2>{result.title}</h2>
-            <p><strong>Author:</strong> {result.author}</p>
-            <p><strong>Genre:</strong> {result.genre}</p>
-          </li>
-        ))}
+        {results.map(renderResult)}
       </ul>
     </div>
   );

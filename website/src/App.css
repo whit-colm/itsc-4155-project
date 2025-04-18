@@ -28,6 +28,8 @@
 
 .App-nav-links li {
   margin-left: 20px;
+  display: flex; /* Align button vertically */
+  align-items: center;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -92,6 +94,22 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+/* Basic styling for logout button */
+.logout-button {
+  background: none;
+  border: none;
+  color: black; /* Match link color */
+  cursor: pointer;
+  font-size: inherit; /* Match link font size */
+  padding: 0;
+  margin: 0;
+  font-family: inherit; /* Match link font family */
+}
+
+.logout-button:hover {
+  text-decoration: underline; /* Match link hover */
 }
 
 .App-logo-link {
