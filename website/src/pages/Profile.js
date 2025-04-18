@@ -4,6 +4,71 @@ import '../styles/Profile.css';
 // Define defaultAvatar path assuming it's in the public folder
 const defaultAvatar = '/logo192.png';
 
+// --- TOTP Helper Functions ---
+function uuidToBase32Secret(uuid) {
+  const base32chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  return uuid.toUpperCase().split('').filter(c => base32chars.includes(c)).join('');
+}
+
+function base32Decode(str) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = '';
+  let value = 0;
+  let output = [];
+  for (let i = 0; i < str.length; i++) {
+    value = alphabet.indexOf(str[i]);
+    if (value === -1) continue;
+    bits += value.toString(2).padStart(5, '0');
+  }
+  for (let i = 0; i + 8 <= bits.length; i += 8) {
+    output.push(parseInt(bits.slice(i, i + 8), 2));
+  }
+  return new Uint8Array(output);
+}
+
+async function genDeleteTOTP(uuid, deltaSeconds = 0) {
+  if (!uuid) throw new Error("User ID is required to generate TOTP.");
+  const secret = uuidToBase32Secret(uuid);
+  if (!secret || secret.length < 16) { // Basic check for a plausible secret length
+      throw new Error("Invalid User ID format for TOTP generation.");
+  }
+  const key = base32Decode(secret);
+
+  const now = Math.floor(Date.now() / 1000) + deltaSeconds;
+  let count = Math.floor(now / 30);
+
+  const countBytes = new Uint8Array(8);
+  for (let i = 7; i >= 0; i--) {
+    countBytes[i] = count & 0xff;
+    count = count >> 8;
+  }
+
+  try {
+    const cryptoKey = await window.crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'HMAC', hash: 'SHA-1' },
+      false,
+      ['sign']
+    );
+    const hashBuffer = await window.crypto.subtle.sign('HMAC', cryptoKey, countBytes);
+    const hash = new Uint8Array(hashBuffer);
+
+    const offset = hash[hash.length - 1] & 0x0f;
+    const code = ((hash[offset] & 0x7f) << 24) |
+                 ((hash[offset + 1] & 0xff) << 16) |
+                 ((hash[offset + 2] & 0xff) << 8) |
+                 (hash[offset + 3] & 0xff);
+
+    const otp = code % 1000000;
+    return otp.toString().padStart(6, '0');
+  } catch (error) {
+      console.error("Error generating TOTP:", error);
+      throw new Error("Could not generate deletion code. Ensure your browser supports Web Crypto API.");
+  }
+}
+// --- End TOTP Helper Functions ---
+
 function Profile({ jwt }) {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -18,6 +83,10 @@ function Profile({ jwt }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletionCodeInput, setDeletionCodeInput] = useState('');
+  const [generatedDeletionCode, setGeneratedDeletionCode] = useState('');
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
 
   const getJwt = () => document.cookie
     .split('; ')
@@ -162,14 +231,39 @@ function Profile({ jwt }) {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+  const handleDeleteAccountClick = () => {
+    setError('');
+    setSuccessMessage('');
+    setShowDeleteConfirm(true);
+    setDeletionCodeInput('');
+    setGeneratedDeletionCode('');
+  };
+
+  const handleGenerateCode = async () => {
+    setIsGeneratingCode(true);
+    setError('');
+    try {
+      const code = await genDeleteTOTP(userId);
+      setGeneratedDeletionCode(code);
+    } catch (error) {
+      console.error("Error in handleGenerateCode:", error);
+      setError(error.message || "Failed to generate deletion code.");
+      setGeneratedDeletionCode('');
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletionCodeInput.trim()) {
+      setError('Please enter the deletion code.');
       return;
     }
 
     const token = getJwt();
     if (!token) {
       setError('Authentication error. Please log in.');
+      setShowDeleteConfirm(false);
       return;
     }
 
@@ -177,7 +271,7 @@ function Profile({ jwt }) {
     setError('');
 
     try {
-      const response = await fetch(`/api/user/me`, {
+      const response = await fetch(`/api/user/me?code=${deletionCodeInput}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -190,11 +284,15 @@ function Profile({ jwt }) {
         window.location.href = '/';
       } else {
         const errorData = await response.json();
+        if (response.status === 403) {
+          throw new Error(errorData.summary || 'Invalid deletion code or permission denied.');
+        }
         throw new Error(errorData.summary || 'Failed to delete account.');
       }
     } catch (error) {
       console.error('Error deleting account:', error);
       setError(error.message || 'An error occurred while deleting the account.');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -344,7 +442,46 @@ function Profile({ jwt }) {
             <p><strong>Email:</strong> {email || 'N/A'}</p>
             <div className="profile-actions">
               <button onClick={() => { setIsEditing(true); setSuccessMessage(''); setError(''); }} disabled={isSubmitting}>Edit Profile</button>
-              <button onClick={handleDeleteAccount} disabled={isSubmitting} className="delete-button">Delete Account</button>
+              <button onClick={handleDeleteAccountClick} disabled={isSubmitting} className="delete-button">Delete Account</button>
+            </div>
+          </div>
+        )}
+
+        {showDeleteConfirm && (
+          <div className="delete-confirmation">
+            <h3>Confirm Account Deletion</h3>
+            <p>Click the button below to generate a time-sensitive deletion code. Enter the generated code in the input field to confirm.</p>
+
+            <button onClick={handleGenerateCode} disabled={isGeneratingCode || isSubmitting} className="generate-code-button">
+              {isGeneratingCode ? 'Generating...' : 'Generate Deletion Code'}
+            </button>
+
+            {generatedDeletionCode && (
+              <div className="generated-code-display">
+                <p>Enter this code:</p>
+                <strong>{generatedDeletionCode}</strong>
+              </div>
+            )}
+
+            {error && <p className="error-message">{error}</p>}
+
+            <label htmlFor="deletion-code">Enter Code:</label>
+            <input
+              id="deletion-code"
+              type="text"
+              value={deletionCodeInput}
+              onChange={(e) => setDeletionCodeInput(e.target.value)}
+              placeholder="Enter 6-digit code"
+              maxLength="6"
+              disabled={isSubmitting}
+            />
+            <div className="form-actions">
+              <button onClick={handleConfirmDelete} disabled={isSubmitting || !deletionCodeInput.trim() || deletionCodeInput.length !== 6} className="delete-button">
+                {isSubmitting ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} disabled={isSubmitting} className="cancel-button">
+                Cancel
+              </button>
             </div>
           </div>
         )}

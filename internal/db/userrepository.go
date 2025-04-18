@@ -65,8 +65,8 @@ func (u *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 	var avatarID uuid.UUID
 	tx.QueryRow(ctx,
-		`SELETCT avatar FROM users u
-		 WHERE u.id = $1`,
+		`SELECT avatar FROM users u
+		  WHERE u.id = $1`,
 	).Scan(&avatarID)
 
 	if _, err := tx.Exec(ctx,
