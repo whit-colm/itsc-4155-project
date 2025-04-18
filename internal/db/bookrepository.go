@@ -84,8 +84,8 @@ func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ..
 	var authorIDs []byte
 
 	query := fmt.Sprintf(`SELECT 
-			 b.id, 
-			 b.title, 
+			 b.id,
+			 b.title,
 			 b.published,
 			 COALESCE(
 				 json_agg(a.id) FILTER (WHERE a.id IS NOT NULL),
@@ -100,8 +100,9 @@ func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ..
 			 )
 		 FROM books b
 		 LEFT JOIN books_authors ba ON b.id = ba.book_id
+		 LEFT JOIN authors a ON ba.author_id = a.id
 		 LEFT JOIN isbns i ON b.id = i.book_id
-		 WHERE %v,
+		 WHERE %v
 		 GROUP BY b.id`,
 		clause)
 	if err := b.db.QueryRow(ctx,
