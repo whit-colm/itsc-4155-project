@@ -183,6 +183,7 @@ func NewRepository(uri string, timeout time.Duration) (repository.Repository[str
 	r.User = newUserRepository(db)
 	r.Blob = newBlobRepository(db)
 	r.Comment = newCommentRepository(db)
+	r.Vote = newVoteRepository(db)
 	return r, nil
 }
 
