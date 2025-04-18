@@ -72,19 +72,27 @@ function CreateBook() {
       formData.append('image', image); // Append the image file
     }
 
-    const response = await fetch('/api/books/new', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${jwt}`, // Include JWT for authorization
-      },
-      body: formData
-    });
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Book created:', data);
-      navigate(`/books/${data.uuid}`); // Redirect to the book details page
-    } else {
-      console.error('Failed to create book:', response.statusText);
+    try {
+      const response = await fetch('/api/books/new', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwt}`, // Include JWT for authorization
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Book created:', data);
+        navigate(`/books/${data.uuid}`); // Redirect to the book details page
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to create book:', errorData.message || response.statusText);
+        alert(`Error: ${errorData.message || 'Failed to create book'}`);
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      alert('Unexpected error occurred. Please try again.');
     }
   };
 

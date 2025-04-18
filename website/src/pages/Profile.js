@@ -97,9 +97,9 @@ function Profile({ jwt, setJwt }) {
       const response = await fetch('/api/user/me/avatar', {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${jwt}`,
+          Authorization: `Bearer ${jwt}`, // Include JWT for authorization
         },
-        body: formData,
+        body: formData, // Do not set Content-Type manually
       });
 
       if (!response.ok) {

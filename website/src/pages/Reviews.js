@@ -56,7 +56,7 @@ function Reviews({ bookId, jwt }) {
   };
 
   const handleDeleteComment = async (commentId) => {
-    await fetch(`/comments/${commentId}`, {
+    await fetch(`/api/comments/${commentId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${jwt}` },
     });
