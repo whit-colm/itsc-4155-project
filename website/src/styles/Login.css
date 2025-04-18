@@ -1,15 +1,17 @@
 .login-container {
   max-width: 400px;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: #f9f9f9;
+  margin: 20px auto;
+  padding: 25px;
+  background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .login-container h1 {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
+  font-size: 2rem;
+  color: #333;
 }
 
 .login-container form {
@@ -19,18 +21,22 @@
 
 .login-container input {
   margin-bottom: 15px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 5px;
+  font-size: 1rem;
 }
 
 .login-container button {
-  padding: 10px;
+  padding: 12px;
   background-color: #007bff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
+  font-size: 1rem;
+  margin-top: 10px;
+  transition: background-color 0.3s ease;
 }
 
 .login-container button:hover {
@@ -41,18 +47,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding: 12px;
   background-color: #24292e;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   margin: 0 auto; /* Center the button */
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
 }
 
 .github-login-button img.github-logo {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   margin-right: 10px;
 }
 

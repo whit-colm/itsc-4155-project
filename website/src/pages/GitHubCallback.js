@@ -21,7 +21,7 @@ function GitHubCallback({ setJwt }) {
           const token = data.token;
 
           if (token) {
-            document.cookie = `jwt=${token}; path=/; secure; SameSite=Strict`;
+            document.cookie = `jwt=${token}; path=/; secure; SameSite=Strict`; // Store token in cookie
             setJwt(token);
             navigate('/'); // Redirect to the homepage
           } else {

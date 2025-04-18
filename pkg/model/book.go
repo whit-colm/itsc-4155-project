@@ -5,6 +5,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const BookApiVersion string = "book.itsc-4155-group-project.edu.whits.io/v1alpha1"
+
 // An Books
 type Book struct {
 	ID        uuid.UUID  `json:"id"`
@@ -14,4 +16,8 @@ type Book struct {
 	Published civil.Date `json:"published"`
 	Description uuid.UUID  `json:"description"` 
 	CoverImage  uuid.UUID  `json:"cover_image"`
+}
+
+func (b Book) APIVersion() string {
+	return BookApiVersion
 }

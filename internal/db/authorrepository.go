@@ -80,8 +80,7 @@ func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model
 			a.givenname,
 			a.familyname
 		FROM authors a
-		WHERE a.id = $1
-		GROUP BY a.id`,
+		WHERE a.id = $1`,
 		id,
 	).Scan(
 		&author.ID, &author.GivenName, &author.FamilyName,
@@ -100,10 +99,10 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 	qStr := strings.Join(query, " ")
 	rows, err := a.db.Query(ctx,
 		`SELECT
-			 paradedb.score(b.id),
-		     id,
+			 paradedb.score(id),
+			 id,
 			 family_name,
-			 given_name,
+			 given_name
 		 FROM authors
 	 	 WHERE family_name @@@ $1 OR given_name @@@ $1
 		 ORDER BY paradedb.score(id) DESC, family_name DESC
@@ -118,7 +117,7 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 
 	for rows.Next() {
 		var (
-			s float64
+			s float32
 			u model.Author
 		)
 

@@ -4,6 +4,7 @@
   background-color: #f4f4f9;
   color: #333;
   padding: 20px;
+  padding-bottom: 100px; /* Add padding to prevent footer overlap */
 }
 
 .App-logo {
@@ -27,6 +28,8 @@
 
 .App-nav-links li {
   margin-left: 20px;
+  display: flex; /* Align button vertically */
+  align-items: center;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -93,6 +96,22 @@ a:hover {
   text-decoration: underline;
 }
 
+/* Basic styling for logout button */
+.logout-button {
+  background: none;
+  border: none;
+  color: black; /* Match link color */
+  cursor: pointer;
+  font-size: inherit; /* Match link font size */
+  padding: 0;
+  margin: 0;
+  font-family: inherit; /* Match link font family */
+}
+
+.logout-button:hover {
+  text-decoration: underline; /* Match link hover */
+}
+
 .App-logo-link {
   display: flex;
   align-items: center;
@@ -103,4 +122,18 @@ a:hover {
   font-size: 1.5rem;
   font-weight: bold;
   color: #333;
+}
+
+.footer {
+  background-color: #282c34;
+  color: white;
+  text-align: center;
+  padding: 1em 2em;
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  margin: 0;
+  z-index: 1000; /* Ensure footer is above other elements */
 }

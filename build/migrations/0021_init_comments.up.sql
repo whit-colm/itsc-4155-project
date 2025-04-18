@@ -5,8 +5,8 @@ CREATE TABLE comments (
     body TEXT,
     rating REAL,
     parent_comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
-    votes INTEGER NOT NULL DEFAULT 0,
-    deleted BOOLEAN DEFAULT false,
+    vote_total INTEGER NOT NULL DEFAULT 0,
+    deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -40,7 +40,7 @@ USING bm25 (
     body,
     rating,
     parent_comment_id,
-    votes,
+    vote_total,
     deleted,
     created_at,
     updated_at

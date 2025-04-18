@@ -64,9 +64,13 @@ func (u *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	defer tx.Rollback(ctx)
 
 	var avatarID uuid.UUID
-	tx.QueryRow(ctx,
-		`SELETCT avatar FROM users u
-		 WHERE u.id = $1`,
+	// we use u.db rather than tx.db because if this fails
+ 	// we don't want to kill the transaction
+ 	// we do not care if this fails
+ 	u.db.QueryRow(ctx,
+		`SELECT avatar FROM users
+		 WHERE id = $1`,
+		id,
 	).Scan(&avatarID)
 
 	if _, err := tx.Exec(ctx,

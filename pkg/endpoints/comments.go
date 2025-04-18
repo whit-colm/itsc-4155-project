@@ -71,7 +71,7 @@ func (ch *commentHandle[S]) Post(c *gin.Context) (int, string, error) {
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
 	// Try to get very likely non-existent ID
-	bookID := func(c *gin.Context) uuid.UUID {
+	contextBookID := func(c *gin.Context) uuid.UUID {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil {
 			return uuid.Nil
@@ -95,17 +95,30 @@ func (ch *commentHandle[S]) Post(c *gin.Context) (int, string, error) {
 			"could not parse JSON into comment object",
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
-	if bookID != uuid.Nil {
-		comment.Book = bookID
+	// Set the book ID if it was passed in the URL
+	if contextBookID != uuid.Nil {
+		comment.Book = contextBookID
 	}
 	// We do not need to populate the rest, this should be enough for
 	// the backing store
 	comment.Poster.ID = tokenUserID
+
+	// Set the ID of the comment; the client might try to set it, but
+	// we don't want that
+	comment.ID, err = uuid.NewV7()
+	if err != nil {
+		return http.StatusInternalServerError,
+			"Unable to generate UUID",
+			fmt.Errorf("%s: %w", errorCaller, err)
+	}
+
+	// Create the comment
 	if err = ch.comm.Create(c.Request.Context(), &comment); err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	}
+	c.JSON(http.StatusCreated, comment)
 
-	return http.StatusOK, "", nil
+	return http.StatusCreated, "", nil
 }
 
 func (ch *commentHandle[S]) Edit(c *gin.Context) (int, string, error) {

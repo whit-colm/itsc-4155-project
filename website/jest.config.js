@@ -6,4 +6,7 @@ module.exports = {
   },
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!react-markdown|remark-parse|unified|bail|is-plain-obj|trough|mdast-util-from-markdown).+\\.js$', // Add packages that use ES Modules
+  ],
 };
