@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -43,10 +44,8 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 	}
 	if r, err := strconv.Atoi(c.Query("r")); err != nil {
 		limit = 25
-	} else if r > 250 {
-		limit = 250
 	} else {
-		limit = r
+		limit = min(r, 250)
 	}
 	if o, err := strconv.Atoi(c.Query("o")); err != nil {
 		offset = 0
@@ -93,8 +92,8 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 			)
 	}
 
-	ret := make([]any, limit+offset)
-	for i := range ret {
+	processed := make([]map[string]any, limit+offset)
+	for i := range processed {
 		// Effectively do the merge part of merge sort
 		// Because each slice will already be sorted by best scoring
 		// first, we simply pick which top value of the search domains
@@ -121,12 +120,37 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 			break
 		}
 
-		ret[i] = results[highestScore.Idx][0].ItemAsAny()
+		// Warning: This is unwell. We have to marshal the any to a byte array,
+		// unmarshal it to a map, tack on the APIVersion, then re-marshal it
+		// and *then* we can append it to the processed slice.
+		item := results[highestScore.Idx][0]
+		anyVal := item.ItemAsAny()
+
+		// Marshal to JSON
+		b, err := json.Marshal(anyVal)
+		if err != nil {
+			// Handle error, skip this item
+			continue
+		}
+
+		// Unmarshal to map
+		var m map[string]any
+		if err := json.Unmarshal(b, &m); err != nil {
+			// Handle error, skip this item
+			continue
+		}
+
+		// Add APIVersion if possible
+		if a := item.APIVersion(); a != "" {
+			m["APIVersion"] = a
+		}
+
+		processed[i] = m
 		results[highestScore.Idx] = results[highestScore.Idx][1:]
 	}
 	// TODO: THIS IS A BAD BAD BAD BAD BAD WAY OF DEALING WITH OFFSETS
-	ret = ret[offset:]
+	processed = processed[offset:]
 
-	c.JSON(http.StatusOK, ret)
+	c.JSON(http.StatusOK, processed)
 	return http.StatusOK, "", nil
 }

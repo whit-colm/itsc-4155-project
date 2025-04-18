@@ -62,6 +62,7 @@ type Searcher[S comparable, T any] interface {
 }
 
 type AnyScoreItemer interface {
+	model.APIVersioner
 	ItemAsAny() any
 	ScoreValue() float64
 }
@@ -69,6 +70,16 @@ type AnyScoreItemer interface {
 type SearchResult[T any] struct {
 	Item  *T
 	Score float64
+}
+
+// We don't super-need the result to have an APIVersion, but it if it
+// does, we want to expose it.
+func (sr SearchResult[T]) APIVersion() string {
+	av, ok := any(sr.Item).(model.APIVersioner)
+	if ok {
+		return av.APIVersion()
+	}
+	return ""
 }
 
 func (sr SearchResult[T]) ItemAsAny() any {
