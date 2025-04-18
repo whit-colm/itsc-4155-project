@@ -70,12 +70,13 @@ function CreateBook() {
     // Ensure published date is in YYYY-MM-DD format or adjust if backend needs ISO
     const formattedPublishedDate = published; // Assuming backend accepts YYYY-MM-DD
 
+    // Prepare book data matching Go model structure
     const newBook = {
       title,
-      author,
       published: formattedPublishedDate,
-      isbns // Send the array directly
+      isbns: isbns.map(isbn => ({ type: isbn.type, value: isbn.value.replace(/[\s-]/g, '') })) // Clean ISBN values
     };
+
     const jwt = document.cookie
       .split('; ')
       .find((row) => row.startsWith('jwt='))
@@ -87,28 +88,38 @@ function CreateBook() {
         return;
     }
 
-    const formData = new FormData();
-    formData.append('book', JSON.stringify(newBook));
+    let requestOptions = {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${jwt}`,
+        },
+    };
+
     if (image) {
-      formData.append('image', image); // Append the image file
+        // Use FormData when image is present
+        const formData = new FormData();
+        formData.append('book', JSON.stringify(newBook));
+        formData.append('image', image);
+        requestOptions.body = formData;
+        console.warn("Attempting image upload with FormData. Backend might not support this.");
+        setSubmitError("Image upload is not currently supported by the backend."); // Inform user proactively
+    } else {
+        // Use application/json when no image is present
+        requestOptions.headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify(newBook);
     }
 
     try {
-      const response = await fetch('/api/books/new', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${jwt}`, // Include JWT for authorization
-        },
-        body: formData
-      });
+      // Use the configured requestOptions
+      const response = await fetch('/api/books/new', requestOptions);
 
       if (response.ok) {
         const data = await response.json();
         console.log('Book created:', data);
-        navigate(`/books/${data.uuid}`); // Redirect to the book details page
+        navigate(`/books/${data.id}`); // Use 'id' from the response
       } else {
         const errorData = await response.json();
-        console.error('Failed to create book:', errorData.summary || response.statusText);
+        console.error('Failed to create book:', errorData.summary || response.statusText, errorData.details);
         setSubmitError(errorData.summary || `Error: ${response.statusText}`);
       }
     } catch (error) {

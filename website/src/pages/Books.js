@@ -10,43 +10,48 @@ function Books({ jwt }) {
   // Fetch all books using search endpoint with empty query
   const fetchBooks = async (retries = 3) => {
     setLoading(true);
-    setError(null); // Clear previous errors
-    const resultsPerPage = 100; // Fetch up to 100 books
-    const offset = 0; // Start from the beginning
+    setError(null);
+    const resultsPerPage = 100;
+    const offset = 0;
 
     try {
-      // Add 'r' and 'o' parameters to the fetch URL
-      const response = await fetch(`/api/search?d=booktitle&q=&r=${resultsPerPage}&o=${offset}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
-        },
+      const response = await fetch(
+        `/api/search?d=booktitle&q=&r=${resultsPerPage}&o=${offset}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${jwt}`,
+          },
       });
 
       if (!response.ok) {
-          const errorData = await response.json(); // Try to get error details
-          throw new Error(errorData.summary || `Failed to fetch books: ${response.statusText}`);
+        const errorData = await response.json();
+        // If empty‐query error, treat as zero books rather than retry
+        if (response.status === 400 && errorData.summary?.includes('must not be empty')) {
+          setBooks([]);
+          return; // exit early, no retry
+        }
+        throw new Error(errorData.summary || response.statusText);
       }
 
       const data = await response.json();
-      const bookResults = (data.results || []).filter(item => // Ensure results is an array
-        item.apiVersion?.startsWith('book.')
-      );
+      const bookResults = Array.isArray(data)
+        ? data
+        : Array.isArray(data.results)
+          ? data.results
+          : [];
       setBooks(bookResults);
 
     } catch (err) {
-      if (retries > 0) {
+      // Retry only for non-400 errors
+      if (retries > 0 && !err.message.includes('must not be empty')) {
         console.warn(`Retrying fetchBooks... (${3 - retries + 1})`);
         setTimeout(() => fetchBooks(retries - 1), 2000);
-      } else {
-        setError(err.message || 'Failed to load books. Please try again later.'); // Use error message from catch
-        console.error('Error fetching books:', err);
+        return;
       }
+      setError(err.message);
     } finally {
-      if (retries === 0 || !error) {
-          setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
