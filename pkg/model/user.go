@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const UserApiVersion string = "user.itsc-4155-group-project.edu.whits.io/v1alpha1"
+
 type User struct {
 	ID          uuid.UUID `json:"id"`
 	GithubID    string    `json:"github_id"`
@@ -20,6 +22,10 @@ type User struct {
 	Email       string    `json:"email"`
 	Avatar      uuid.UUID `json:"bref_avatar"`
 	Admin       bool      `json:"admin"`
+}
+
+func (u User) APIVersion() string {
+	return UserApiVersion
 }
 
 func (u User) ToAuthor() CommentUser {
