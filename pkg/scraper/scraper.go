@@ -26,6 +26,7 @@ type BookScraper struct {
 	blob repository.BlobManager
 	book repository.BookManager[*model.Book]
 	athr repository.AuthorManager[*model.Author]
+	keys map[string]string
 }
 
 func NewBookScraper(blob repository.BlobManager, book repository.BookManager[*model.Book], athr repository.AuthorManager[*model.Author]) *BookScraper {
@@ -209,8 +210,12 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 				// TODO: find a method to get the author from a tertiary source
 				// as google books does not provide a method of discriminating
 				// between authors with the same name.
+				id, err := uuid.NewV7()
+				if err != nil {
+					return 0, fmt.Errorf("%v: %w", errorCaller, err)
+				}
 				author = &model.Author{
-					ID:         uuid.New(),
+					ID:         id,
 					GivenName:  "",
 					FamilyName: authorName,
 				}
