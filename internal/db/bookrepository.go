@@ -95,7 +95,7 @@ func (b *bookRepository[S]) ExistsByISBN(ctx context.Context, isbns ...model.ISB
 	book, err := b.getWhere(ctx, clause, args...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, false, repository.Err{Code: repository.ErrorNotFound, Err: err}
+			return nil, false, repository.Err{Code: repository.ErrNotFound, Err: err}
 		}
 		return nil, false, fmt.Errorf("get book: %w", err)
 	}
@@ -192,7 +192,7 @@ func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ..
 		}
 		return book, nil
 	}
-	return nil, repository.ErrorNotFound
+	return nil, repository.ErrNotFound
 }
 
 // Update implements repository.BookManager.

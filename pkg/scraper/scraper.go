@@ -39,8 +39,12 @@ func NewBookScraper(blob repository.BlobManager, book repository.BookManager[*mo
 func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, query string, iCh chan<- int, eCh chan<- error, wg *sync.WaitGroup) {
 	defer wg.Done()
 	const errorCaller string = "Google Books Scraper"
+	if limit < 0 {
+		eCh <- fmt.Errorf("%s: limit `%d` is negative, which is not allowed", errorCaller, limit)
+		return
+	}
 	if limit > maxLimit {
-		eCh <- fmt.Errorf("%s: limit %d is greater than %d, which is the maximum allowed by Google Books API",
+		eCh <- fmt.Errorf("%s: limit `%d` is greater than Google Books API maximum `%d`",
 			errorCaller, limit, maxLimit,
 		)
 		return
@@ -85,6 +89,9 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 	}
 
 	/*** Prepare request for each self-link ***/
+	// The 'fields' constant is commented out because it is not used in the current implementation.
+	// It can be used to pre-filter the fields returned by the Google Books API, saving bandwidth
+	// but it liked to 503 me last night so it's in limbo for now.
 	//const fields string = "fields=volumeInfo(title,subtitle,authors,publishedDate,description,industryIdentifiers,categories,imageLinks)"
 	var links []string = make([]string, len(aux.Items))
 	for i, v := range aux.Items {
@@ -105,14 +112,14 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 		}
 		var aux struct {
 			VolumeInfo struct {
-				Title               string       `json:"title"`
-				Subtitle            string       `json:"subtitle"`
-				Authors             []string     `json:"authors"`
-				PublishedDate       string       `json:"publishedDate"`
-				Description         string       `json:"description"`
-				IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
-				Categories          []string     `json:"categories"`
-				ImageLinks          ImageLinks   `json:"imageLinks"`
+				Title               string               `json:"title"`
+				Subtitle            string               `json:"subtitle"`
+				Authors             []string             `json:"authors"`
+				PublishedDate       string               `json:"publishedDate"`
+				Description         string               `json:"description"`
+				IndustryIdentifiers []industryIdentifier `json:"industryIdentifiers"`
+				Categories          []string             `json:"categories"`
+				ImageLinks          imageLinks           `json:"imageLinks"`
 			} `json:"volumeInfo"`
 		}
 		if err := json.Unmarshal(respBody, &aux); err != nil {
@@ -130,7 +137,7 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 			ThumbImage:  uuid.Nil,
 		}
 		if _, exists, err := s.book.ExistsByISBN(ctx, b.ISBNs...); err != nil {
-			if !errors.Is(err, repository.ErrorNotFound) {
+			if !errors.Is(err, repository.ErrNotFound) {
 				return 0, fmt.Errorf("%v: %w", errorCaller, err)
 			}
 		} else if exists {
@@ -142,29 +149,41 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 		storeBlobbedUrl := func(url string, to *uuid.UUID) error {
 			b, err := urlToBlob(ctx, url)
 			if err != nil {
-				return fmt.Errorf("%v: %w", errorCaller, err)
+				return fmt.Errorf("%v: failed to convert URL to blob: %w", errorCaller, err)
 			}
 			if err := s.blob.Create(ctx, b); err != nil {
-				return fmt.Errorf("%v: %w", errorCaller, err)
+				return fmt.Errorf("%v: failed to create blob: %w", errorCaller, err)
 			}
 			*to = b.ID
 			return nil
 		}
 		// Set thumbnail and cover images
 		if v.ImageLinks.Thumbnail != "" {
-			storeBlobbedUrl(v.ImageLinks.Thumbnail, &b.ThumbImage)
+			if err := storeBlobbedUrl(v.ImageLinks.Thumbnail, &b.ThumbImage); err != nil {
+				return 0, err
+			}
 		} else if v.ImageLinks.SmallThumbnail != "" {
-			storeBlobbedUrl(v.ImageLinks.SmallThumbnail, &b.ThumbImage)
+			if err := storeBlobbedUrl(v.ImageLinks.SmallThumbnail, &b.ThumbImage); err != nil {
+				return 0, err
+			}
 		}
 
 		if v.ImageLinks.ExtraLarge != "" {
-			storeBlobbedUrl(v.ImageLinks.ExtraLarge, &b.CoverImage)
+			if err := storeBlobbedUrl(v.ImageLinks.ExtraLarge, &b.CoverImage); err != nil {
+				return 0, err
+			}
 		} else if v.ImageLinks.Large != "" {
-			storeBlobbedUrl(v.ImageLinks.Large, &b.CoverImage)
+			if err := storeBlobbedUrl(v.ImageLinks.Large, &b.CoverImage); err != nil {
+				return 0, err
+			}
 		} else if v.ImageLinks.Medium != "" {
-			storeBlobbedUrl(v.ImageLinks.Medium, &b.CoverImage)
+			if err := storeBlobbedUrl(v.ImageLinks.Medium, &b.CoverImage); err != nil {
+				return 0, err
+			}
 		} else if v.ImageLinks.Small != "" {
-			storeBlobbedUrl(v.ImageLinks.Small, &b.CoverImage)
+			if err := storeBlobbedUrl(v.ImageLinks.Small, &b.CoverImage); err != nil {
+				return 0, err
+			}
 		} else {
 			b.CoverImage = b.ThumbImage
 		}
@@ -179,12 +198,11 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 		// Authors
 		for _, authorName := range v.Authors {
 			// Check if the author already exists
-			author, exists, err := s.athr.ExistsByName(ctx, "")
+			author, exists, err := s.athr.ExistsByName(ctx, authorName)
 			if err != nil {
-				fmt.Println("TODO: handle error")
-				/*if !errors.Is(err, repository.ErrorNotFound) {
+				if !errors.Is(err, repository.ErrNotFound) {
 					return 0, fmt.Errorf("%v: %w", errorCaller, err)
-				}*/
+				}
 			}
 			if !exists {
 				// Create a new author if it does not exist

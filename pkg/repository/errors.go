@@ -13,9 +13,12 @@ import (
  */
 
 var (
-	ErrorNotFound      = errors.New("not found")
-	ErrorBadConnection = errors.New("bad connection")
-	ErrorBadTypecast   = errors.New("failed to typecast")
+	ErrNotFound        = errors.New("not found")
+	ErrBadConnection   = errors.New("bad connection")
+	ErrBadTypecast     = errors.New("failed to typecast")
+	ErrMultipleResults = errors.New("multiple results found")
+	ErrInvalidInput    = errors.New("invalid input")
+	ErrUndefined       = errors.New("undefined error")
 )
 
 type Err struct {
@@ -30,10 +33,10 @@ func (e Err) Error() string {
 	return e.Code.Error()
 }
 
-func (e *Err) Unwrap() error {
+func (e Err) Unwrap() error {
 	return e.Err
 }
 
-func (e *Err) Is(target error) bool {
+func (e Err) Is(target error) bool {
 	return errors.Is(e.Code, target)
 }

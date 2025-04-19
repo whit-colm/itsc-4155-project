@@ -24,7 +24,7 @@ func (r *VoteRepo[S]) prune(ctx context.Context) {
 	defer r.mut.Unlock()
 	var deadComments uuid.UUIDs
 	for cID, uVotes := range r.votes {
-		if _, err := r.comm.GetByID(ctx, cID); errors.Is(err, repository.ErrorNotFound) {
+		if _, err := r.comm.GetByID(ctx, cID); errors.Is(err, repository.ErrNotFound) {
 			deadComments = append(deadComments, cID)
 			continue
 		} else if err != nil {
@@ -32,7 +32,7 @@ func (r *VoteRepo[S]) prune(ctx context.Context) {
 		}
 		var deadUsers uuid.UUIDs
 		for uID := range uVotes {
-			if _, err := r.user.GetByID(ctx, uID); errors.Is(err, repository.ErrorNotFound) {
+			if _, err := r.user.GetByID(ctx, uID); errors.Is(err, repository.ErrNotFound) {
 				deadUsers = append(deadUsers, uID)
 			} else if err != nil {
 				panic(err)

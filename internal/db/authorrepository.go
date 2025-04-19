@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -62,8 +63,8 @@ func (a *authorRepository[S]) ExistsByName(ctx context.Context, name string) (*m
 	).Scan(
 		&author.ID, &author.GivenName, &author.FamilyName,
 	); err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, false, repository.Err{Code: repository.ErrorNotFound, Err: fmt.Errorf("%s: %w", errorCaller, err)}
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, repository.Err{Code: repository.ErrNotFound, Err: err}
 		}
 		return nil, false, fmt.Errorf("%v: %w", errorCaller, err)
 	}

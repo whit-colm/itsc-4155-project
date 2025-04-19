@@ -34,15 +34,15 @@ func wrap(ep func(*gin.Context) (int, string, error)) func(*gin.Context) {
 }
 
 func wrapDatastoreError(caller string, err error) (int, string, error) {
-	if errors.Is(err, repository.ErrorNotFound) {
+	if errors.Is(err, repository.ErrNotFound) {
 		return http.StatusNotFound,
 			"Could not find resource matching given key or description",
 			fmt.Errorf("%v: %w", caller, err)
-	} else if errors.Is(err, repository.ErrorBadConnection) {
+	} else if errors.Is(err, repository.ErrBadConnection) {
 		return http.StatusServiceUnavailable,
 			"There was an issue connecting to the datastore",
 			fmt.Errorf("%v: %w", caller, err)
-	} else if errors.Is(err, repository.ErrorBadTypecast) {
+	} else if errors.Is(err, repository.ErrBadTypecast) {
 		return http.StatusBadRequest,
 			"Could not cast given value as necessary type",
 			fmt.Errorf("%v: %w", caller, err)

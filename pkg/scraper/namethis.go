@@ -21,18 +21,18 @@ const (
 // Struct for the response from the API
 type GoogleBooksResponse struct {
 	Items []struct {
-		VolumeInfo VolumeInfo `json:"volumeInfo"`
+		VolumeInfo volumeInfo `json:"volumeInfo"`
 	} `json:"items"`
 }
 
 // Struct to hold identifiers
-type Identifier struct {
+type industryIdentifier struct {
 	Type       string `json:"type"`
 	Identifier string `json:"identifier"`
 }
 
 // Struct for different image sizes
-type ImageLinks struct {
+type imageLinks struct {
 	SmallThumbnail string `json:"smallThumbnail"`
 	Thumbnail      string `json:"thumbnail"`
 	Small          string `json:"small"`
@@ -42,18 +42,18 @@ type ImageLinks struct {
 }
 
 // Struct for main book information
-type VolumeInfo struct {
-	Title               string       `json:"title"`
-	Subtitle            string       `json:"subtitle"`
-	Authors             []string     `json:"authors"`
-	PublishedDate       string       `json:"publishedDate"`
-	Description         string       `json:"description"`
-	IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
-	ImageLinks          ImageLinks   `json:"imageLinks"`
+type volumeInfo struct {
+	Title               string               `json:"title"`
+	Subtitle            string               `json:"subtitle"`
+	Authors             []string             `json:"authors"`
+	PublishedDate       string               `json:"publishedDate"`
+	Description         string               `json:"description"`
+	IndustryIdentifiers []industryIdentifier `json:"industryIdentifiers"`
+	ImageLinks          imageLinks           `json:"imageLinks"`
 }
 
 // extractISBN extracts the ISBN
-func extractISBN(identifiers []Identifier) []model.ISBN {
+func extractISBN(identifiers []industryIdentifier) []model.ISBN {
 	var isbns []model.ISBN
 
 	for _, id := range identifiers {

@@ -77,7 +77,7 @@ func (ch *commentHandle[S]) Post(c *gin.Context) (int, string, error) {
 			return uuid.Nil
 		}
 		_, err = ch.book.GetByID(c.Request.Context(), id)
-		if errors.Is(err, repository.ErrorNotFound) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return uuid.Nil
 		}
 		return id

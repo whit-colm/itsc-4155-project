@@ -38,7 +38,7 @@ func (m *AuthorRepo[S]) Book(ctx context.Context, bookID uuid.UUID) ([]*model.Au
 		result = make([]*model.Author, 0, len(b.AuthorIDs))
 		for _, aID := range b.AuthorIDs {
 			if a, exists := m.authors[aID]; !exists {
-				return nil, repository.ErrorNotFound
+				return nil, repository.ErrNotFound
 			} else {
 				result = append(result, a)
 			}
@@ -67,6 +67,17 @@ func (m *AuthorRepo[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Autho
 		return nil, fmt.Errorf("author not found")
 	}
 	return author, nil
+}
+
+func (m *AuthorRepo[S]) ExistsByName(ctx context.Context, name string) (*model.Author, bool, error) {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+	for _, author := range m.authors {
+		if author.GivenName == name || author.FamilyName == name {
+			return author, true, nil
+		}
+	}
+	return nil, false, nil
 }
 
 // Delete implements repository.AuthorManager.
