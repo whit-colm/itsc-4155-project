@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -40,9 +41,10 @@ func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error 
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO books (id, title, published)
-		 VALUES ($1, $2, $3)`,
-		book.ID, book.Title, book.Published.In(time.UTC),
+		`INSERT INTO books (id, title, subtitle, description, published, cover_image, thumbnail_image)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		book.ID, book.Title, book.Subtitle, book.Description,
+		book.Published.In(time.UTC), book.CoverImage, book.ThumbImage,
 	)
 	if err != nil {
 		return fmt.Errorf("create book: %w", err)
@@ -77,52 +79,120 @@ func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error 
 	return tx.Commit(ctx)
 }
 
-func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
-	var book model.Book
-	var published time.Time
-	var isbns []byte
-	var authorIDs []byte
+func (b *bookRepository[S]) ExistsByISBN(ctx context.Context, isbns ...model.ISBN) (*model.Book, bool, error) {
+	if len(isbns) == 0 {
+		return nil, false, fmt.Errorf("no ISBNs provided")
+	}
 
-	query := fmt.Sprintf(`SELECT 
-			 b.id,
-			 b.title,
-			 b.published,
-			 COALESCE(
-				 json_agg(a.id) FILTER (WHERE a.id IS NOT NULL),
-				 '[]'::json
-			 ),
-			 COALESCE(
-				 json_agg(json_build_object(
-					 'value', i.isbn,
-					 'type', i.isbn_type
-				 )) FILTER (WHERE i.isbn IS NOT NULL),
-				 '[]'::json
-			 )
+	// Build query with IN clause
+	placeholders := []string{}
+	args := []any{}
+	for i, isbn := range isbns {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", i+1))
+		args = append(args, isbn.String())
+	}
+	clause := fmt.Sprintf("i.isbn IN (%s)", strings.Join(placeholders, ","))
+	book, err := b.getWhere(ctx, clause, args...)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, false, repository.Err{Code: repository.ErrNotFound, Err: err}
+		}
+		return nil, false, fmt.Errorf("get book: %w", err)
+	}
+	return book, true, nil
+}
+
+func (b bookRepository[S]) queryString(clause string, search bool) string {
+	return fmt.Sprintf(`SELECT
+		 %v
+		 b.id,
+		 b.title,
+		 COALESCE(b.subtitle, ''),
+		 COALESCE(b.description, ''),
+		 b.published,
+		 COALESCE(
+			 json_agg(a.author_id) FILTER (WHERE a.author_id IS NOT NULL),
+			 '[]'::json
+		 ),
+		 COALESCE(
+			 json_agg(json_build_object(
+				 'value', i.isbn,
+				 'type', i.isbn_type
+			 )) FILTER (WHERE i.isbn IS NOT NULL),
+			 '[]'::json
+		 ),
+		 b.cover_image,
+		 b.thumbnail_image
 		 FROM books b
-		 LEFT JOIN books_authors ba ON b.id = ba.book_id
-		 LEFT JOIN authors a ON ba.author_id = a.id
-		 LEFT JOIN isbns i ON b.id = i.book_id
+		 LEFT JOIN isbns i ON i.book_id = b.id
+		 LEFT JOIN books_authors a ON a.book_id = b.id
 		 WHERE %v
 		 GROUP BY b.id`,
-		clause)
-	if err := b.db.QueryRow(ctx,
-		query, vals...,
-	).Scan(
-		&book.ID, &book.Title, &published, &authorIDs, &isbns,
-	); err != nil {
-		return nil, fmt.Errorf("get book: %w", err)
+		func() string {
+			if search {
+				return "paradedb.score(b.id),"
+			}
+			return ""
+		}(),
+		clause,
+	)
+}
+
+func (b bookRepository[S]) rowsParse(rows pgx.Rows, search bool) (*model.Book, float64, error) {
+	var (
+		book      model.Book
+		published time.Time
+		authorIDs []byte
+		isbns     []byte
+		score     float64
+	)
+
+	if search {
+		if err := rows.Scan(
+			&score, &book.ID, &book.Title, &book.Subtitle, &book.Description,
+			&published, &authorIDs, &isbns, &book.CoverImage, &book.ThumbImage,
+		); err != nil {
+			return nil, -1.0, err
+		}
+	} else {
+		if err := rows.Scan(
+			&book.ID, &book.Title, &book.Subtitle, &book.Description,
+			&published, &authorIDs, &isbns, &book.CoverImage, &book.ThumbImage,
+		); err != nil {
+			return nil, -1.0, err
+		}
 	}
 
 	book.Published = civil.DateOf(published)
 
 	if err := json.Unmarshal(isbns, &book.ISBNs); err != nil {
-		return nil, fmt.Errorf("get book: %w", err)
+		return nil, -1.0, err
 	}
 	if err := json.Unmarshal(authorIDs, &book.AuthorIDs); err != nil {
-		return nil, fmt.Errorf("get book: %w", err)
+		return nil, -1.0, err
 	}
 
-	return &book, nil
+	return &book, score, nil
+}
+
+func (b *bookRepository[S]) getWhere(ctx context.Context, clause string, vals ...any) (*model.Book, error) {
+	rows, err := b.db.Query(ctx,
+		b.queryString(clause, false),
+		vals...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		book, _, err := b.rowsParse(rows, false)
+		if err != nil {
+			return nil, err
+		}
+		return book, nil
+	}
+	return nil, repository.ErrNotFound
 }
 
 // Update implements repository.BookManager.
@@ -173,12 +243,15 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 			 paradedb.score(b.id),
 			 b.id,
 			 b.title,
-			 v.published,
+			 b.subtitle,
+			 b.description,
+			 b.published,
+			 v.thumbnail_image,
 			 v.authors,
 			 v.isbns
 		 FROM books b
 		 LEFT JOIN v_books_summary v ON v.id = b.id
-	 	 WHERE b.title @@@ $1
+	 	 WHERE b.title @@@ $1 OR b.subtitle @@@ $1 OR b.description @@@ $1
 		 ORDER BY paradedb.score(b.id) DESC, v.title DESC
 		 LIMIT $2 OFFSET $3`,
 		qStr,
@@ -191,14 +264,15 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 
 	for rows.Next() {
 		var (
-			s  float32
+			s  float64
 			o  model.BookSummary
 			aS []byte
 			iS []byte
 		)
 
 		if err = rows.Scan(
-			&s, &o.ID, &o.Title, &o.Published, &aS, &iS,
+			&s, &o.ID, &o.Title, &o.Subtitle, &o.Description,
+			&o.Published, &o.ThumbImage, &aS, &iS,
 		); err != nil {
 			return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}

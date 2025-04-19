@@ -64,12 +64,18 @@ type Searcher[S comparable, T any] interface {
 type AnyScoreItemer interface {
 	model.APIVersioner
 	ItemAsAny() any
-	ScoreValue() float32
+	ScoreValue() float64
 }
 
 type SearchResult[T any] struct {
 	Item  *T
-	Score float32
+	Score float64
+}
+
+// Take a guess as to what this does.
+type BookScraper interface {
+	Scrape(ctx context.Context, offset, limit int, query string) (int, error)
+	ScrapeISBN(ctx context.Context, isbn model.ISBN) (int, error)
 }
 
 // We don't super-need the result to have an APIVersion, but it if it
@@ -86,7 +92,7 @@ func (sr SearchResult[T]) ItemAsAny() any {
 	return sr.Item
 }
 
-func (sr SearchResult[T]) ScoreValue() float32 {
+func (sr SearchResult[T]) ScoreValue() float64 {
 	return sr.Score
 }
 
@@ -124,6 +130,7 @@ type AuthorManager[S comparable] interface {
 	CRUDmanager[uuid.UUID, model.Author]
 	Searcher[S, model.Author]
 	Book(ctx context.Context, bookID uuid.UUID) ([]*model.Author, error)
+	ExistsByName(ctx context.Context, name string) (*model.Author, bool, error)
 }
 
 type BookManager[S comparable] interface {
@@ -132,6 +139,7 @@ type BookManager[S comparable] interface {
 	Summarize(context.Context, *model.Book) (*model.BookSummary, error)
 	GetByISBN(context.Context, model.ISBN) (*model.Book, error)
 	Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error)
+	ExistsByISBN(ctx context.Context, isbns ...model.ISBN) (*model.Book, bool, error)
 }
 
 /*************************/

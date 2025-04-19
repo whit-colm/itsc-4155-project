@@ -120,7 +120,7 @@ func TestUserRepo_GetByID(t *testing.T) {
 	t.Run("NotExists", func(t *testing.T) {
 		repo := NewInMemoryUserManager()
 		_, err := repo.GetByID(context.Background(), uuid.New())
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 }
 
@@ -161,7 +161,7 @@ func TestUserRepo_Update(t *testing.T) {
 		repo := NewInMemoryUserManager()
 		user := &model.User{ID: uuid.New()}
 		_, err := repo.Update(context.Background(), user)
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 }
 
@@ -178,19 +178,19 @@ func TestUserRepo_Delete(t *testing.T) {
 		assert.NoError(t, err)
 
 		_, err = repo.GetByID(context.Background(), user.ID)
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 
 		_, err = repo.GetByGithubID(context.Background(), "ghid")
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 
 		_, err = repo.GetByUsername(context.Background(), user.Username)
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 
 	t.Run("NonExistentUser", func(t *testing.T) {
 		repo := NewInMemoryUserManager()
 		err := repo.Delete(context.Background(), uuid.New())
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 }
 
@@ -208,7 +208,7 @@ func TestUserRepo_GetByGithubID(t *testing.T) {
 	t.Run("NotExists", func(t *testing.T) {
 		repo := NewInMemoryUserManager()
 		_, err := repo.GetByGithubID(context.Background(), "nonexistent")
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 }
 
@@ -228,7 +228,7 @@ func TestUserRepo_GetByUsername(t *testing.T) {
 		repo := NewInMemoryUserManager()
 		username := mustUsername(t, "nonexistent#0001")
 		_, err := repo.GetByUsername(context.Background(), username)
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 }
 
@@ -256,7 +256,7 @@ func TestUserRepo_Permissions(t *testing.T) {
 	t.Run("UserNotFound", func(t *testing.T) {
 		repo := NewInMemoryUserManager()
 		_, err := repo.Permissions(context.Background(), uuid.New())
-		assert.Equal(t, repository.ErrorNotFound, err)
+		assert.Equal(t, repository.ErrNotFound, err)
 	})
 }
 

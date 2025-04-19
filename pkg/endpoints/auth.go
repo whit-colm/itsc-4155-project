@@ -303,11 +303,11 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 	// they've just logged in or their account has been created. We now
 	// issue a JWT now.
 	u, err := h.repo.GetByGithubID(c.Request.Context(), strconv.Itoa(aux.ID))
-	if errors.Is(err, repository.ErrorNotFound) {
+	if errors.Is(err, repository.ErrNotFound) {
 		return http.StatusInternalServerError,
 			"Did not find user with the given GitHub ID",
 			fmt.Errorf("login github callback: %w", err)
-	} else if errors.Is(err, repository.ErrorBadConnection) {
+	} else if errors.Is(err, repository.ErrBadConnection) {
 		return http.StatusServiceUnavailable,
 			"Issue querying the database",
 			fmt.Errorf("login github callback: %w", err)

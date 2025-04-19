@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 
@@ -18,6 +20,7 @@ type searchHandle[S comparable] struct {
 	book repository.BookManager[S]
 	athr repository.AuthorManager[S]
 	comm repository.CommentManager[S]
+	scrp repository.BookScraper
 }
 
 func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
@@ -55,7 +58,7 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 
 	results := [][]repository.AnyScoreItemer{}
 	if slices.Contains(domains, "comments") {
-		// TODO: find a way to do muilti-domain offsets without. this.
+		// TODO: find a way to do multi-domain offsets without. this.
 		_, comments, err := h.comm.Search(c.Request.Context(), 0, limit+offset, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
@@ -64,16 +67,53 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 		results = append(results, comments)
 	}
 	if slices.Contains(domains, "booktitle") {
-		// TODO: find a way to do muilti-domain offsets without. this.
-		_, booktitle, err := h.book.Search(c.Request.Context(), 0, limit+offset, query)
-		if err != nil {
-			return http.StatusServiceUnavailable,
-				errorCaller, err
+		// Searching for books is special, because this is also the
+		// method by which we scrape book data from our external
+		// sources. If we do not find a sufficient number of results
+		// we will make the same query to the scraper and retry.
+		var booktitle []repository.AnyScoreItemer
+		var err error
+		for i := range 2 {
+			if i == 1 {
+				fmt.Println("Second iteration, scraping for more results...")
+				// If we are on the second iteration, we will scrape
+				// and scrape until we have enough results
+				// or we run out of results to scrape.
+				added := 0
+				iter := 0
+				for added < limit {
+					fmt.Printf("added %d/%d, iter %d\tScraping...\n", added, limit, iter)
+					o := offset + iter*limit
+					n, err := h.scrape(c.Request.Context(), o, limit, query)
+					if err != nil {
+						fmt.Printf("added %d/%d, iter %d\tERROR: %v\n", added, limit, iter, err)
+						break
+					}
+					if n == -1 {
+						// If we got -1, we know there's nothing left to scrape
+						fmt.Printf("added %d/%d, iter %d\tNothing more to scrape!\n", added, limit, iter)
+						break
+					} else {
+						added += n
+						iter++
+					}
+				}
+			}
+			// TODO: find a way to do multi-domain offsets without. this.
+			_, booktitle, err = h.book.Search(c.Request.Context(), 0, limit+offset, query)
+			if err != nil {
+				return http.StatusServiceUnavailable,
+					errorCaller, err
+			}
+			// We don't need to scrape if we have enough results
+			if len(booktitle) > limit+offset {
+				break
+			}
 		}
 		results = append(results, booktitle)
 	}
 	if slices.Contains(domains, "authorname") {
-		// TODO: find a way to do muilti-domain offsets without. this.
+		// TODO: find a way to do multi-domain offsets without. this.
 		_, authorname, err := h.athr.Search(c.Request.Context(), 0, limit+offset, query)
 		if err != nil {
 			return http.StatusServiceUnavailable,
@@ -101,7 +141,7 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 		// slice, then pop said slice.
 		highestScore := struct {
 			Idx   int
-			Score float32
+			Score float64
 		}{
 			-1, 0.0,
 		}
@@ -153,4 +193,50 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 
 	c.JSON(http.StatusOK, processed)
 	return http.StatusOK, "", nil
+}
+
+func (h searchHandle[S]) scrape(ctx context.Context, offset, limit int, query string) (int, error) {
+	fmt.Printf("Scraping %d books at offset %d with query `%s`\n", limit, offset, query)
+	added := 0
+	jobs := limit / 40 // 40 is the max number of results we can get per-job
+	if limit%40 != 0 {
+		jobs++ // and we need to add one more job for the remainder
+	}
+	var wg sync.WaitGroup
+	nCh := make(chan int, jobs)
+	eCh := make(chan error, jobs)
+	scrapeAgent := func(nCh chan<- int, eCh chan<- error, o, l int, wg *sync.WaitGroup) {
+		defer wg.Done()
+		n, err := h.scrp.Scrape(ctx, o, l, query)
+		if err != nil {
+			eCh <- err
+			return
+		}
+		nCh <- n
+	}
+
+	rem := limit % 40
+	if rem != 0 {
+		wg.Add(1)
+		o := offset + limit/40*40
+		go scrapeAgent(nCh, eCh, o, rem, &wg)
+	}
+	for j := range limit / 40 {
+		wg.Add(1)
+		o := offset + j*40
+		l := 40
+		go scrapeAgent(nCh, eCh, o, l, &wg)
+	}
+	wg.Wait()
+	close(nCh)
+	close(eCh)
+	for n := range nCh {
+		added += n
+	}
+	for err := range eCh {
+		if err != nil {
+			return added, err
+		}
+	}
+	return added, nil
 }

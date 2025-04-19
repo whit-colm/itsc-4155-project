@@ -2,7 +2,11 @@
 CREATE TABLE books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
     title TEXT NOT NULL,
+    subtitle TEXT,
+    description TEXT,
     published DATE NOT NULL,
+    cover_image UUID REFERENCES blobs(id),
+    thumbnail_image UUID REFERENCES blobs(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -25,7 +29,7 @@ CREATE INDEX i_books_title ON books USING GIN (to_tsvector('english', title));
 CREATE UNIQUE INDEX i_isbns_unique_book ON isbns(book_id, isbn_type);
 
 CREATE INDEX i_books_search ON books
-USING bm25 (id, title, published)
+USING bm25 (id, title, subtitle, description, published)
 WITH (key_field='id');
 
 --------------

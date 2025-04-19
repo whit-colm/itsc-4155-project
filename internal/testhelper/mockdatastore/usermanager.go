@@ -51,7 +51,7 @@ func (m *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.User, erro
 
 	user, exists := m.users[id]
 	if !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	}
 	return user, nil
 }
@@ -62,7 +62,7 @@ func (m *UserRepo) Update(ctx context.Context, user *model.User) (*model.User, e
 
 	u, exists := m.users[user.ID]
 	if !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	}
 
 	m.users[u.ID] = user
@@ -76,7 +76,7 @@ func (m *UserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 	user, exists := m.users[id]
 	if !exists {
-		return repository.ErrorNotFound
+		return repository.ErrNotFound
 	}
 
 	delete(m.byGithubID, user.GithubID)
@@ -100,7 +100,7 @@ func (m *UserRepo) GetByGithubID(ctx context.Context, ghid string) (*model.User,
 
 	user, exists := m.byGithubID[ghid]
 	if !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	}
 	return user, nil
 }
@@ -111,7 +111,7 @@ func (m *UserRepo) GetByUsername(ctx context.Context, username model.Username) (
 
 	user, exists := m.byUsername[username]
 	if !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	}
 	return user, nil
 }
@@ -122,7 +122,7 @@ func (m *UserRepo) Permissions(ctx context.Context, userID uuid.UUID) (bool, err
 
 	user, exists := m.users[userID]
 	if !exists {
-		return false, repository.ErrorNotFound
+		return false, repository.ErrNotFound
 	}
 
 	return user.Admin, nil

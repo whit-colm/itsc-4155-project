@@ -4,7 +4,10 @@ CREATE VIEW v_books_summary AS
     SELECT 
         b.id, 
         b.title,
+        b.subtitle,
+        b.description,
         b.published,
+        b.thumbnail_image,
         COALESCE(
             json_agg(json_build_object(
                 'id', a.id,

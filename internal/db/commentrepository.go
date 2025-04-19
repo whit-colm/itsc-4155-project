@@ -75,10 +75,10 @@ func (c commentRepository[S]) queryString(clause string, search bool) string {
 // constructs the comment's poster username using handle components. It returns
 // the populated *model.Comment, a float32 representing the comment's search
 // score, and an error if any field scanning or username construction fails.
-func (c commentRepository[S]) rowsParse(rows pgx.Rows, search bool) (*model.Comment, float32, error) {
+func (c commentRepository[S]) rowsParse(rows pgx.Rows, search bool) (*model.Comment, float64, error) {
 	var cmt model.Comment
 	var cmtUser model.CommentUser
-	var s float32
+	var s float64
 
 	var e time.Time
 	var h string
@@ -245,20 +245,20 @@ func (c *commentRepository[S]) Search(ctx context.Context, offset int, limit int
 	var resultsT []repository.SearchResult[model.Comment]
 	var resultsASI []repository.AnyScoreItemer
 
-	qStr := strings.Join(query, " ")
 	rows, err := c.db.Query(ctx,
 		c.queryString(`c.body @@@ $1
 			 ORDER BY paradedb.score(c.id) DESC, updated_at DESC
 			 LIMIT $2 OFFSET $3`,
 			true,
 		),
-		qStr,
+		strings.Join(query, " "),
 		limit,
 		offset,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		c, s, err := c.rowsParse(rows, true)

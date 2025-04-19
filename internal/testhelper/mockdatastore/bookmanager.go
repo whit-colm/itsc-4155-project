@@ -61,7 +61,7 @@ func (m *BookRepo[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Book, e
 	defer m.mut.RUnlock()
 
 	if book, exists := m.books[id]; !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	} else {
 		return book, nil
 	}
@@ -72,7 +72,7 @@ func (m *BookRepo[S]) Update(ctx context.Context, book *model.Book) (*model.Book
 	defer m.mut.Unlock()
 
 	if c, exists := m.books[book.ID]; !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	} else {
 		m.books[book.ID] = c
 	}
@@ -85,7 +85,7 @@ func (m *BookRepo[S]) Delete(ctx context.Context, id uuid.UUID) error {
 	defer m.mut.Unlock()
 
 	if book, exists := m.books[id]; !exists {
-		return repository.ErrorNotFound
+		return repository.ErrNotFound
 	} else {
 		delete(m.books, book.ID)
 	}
@@ -98,10 +98,21 @@ func (m *BookRepo[S]) GetByISBN(ctx context.Context, isbn model.ISBN) (*model.Bo
 	defer m.mut.RUnlock()
 
 	if book, exists := m.byISBN[isbn]; !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	} else {
 		return book, nil
 	}
+}
+
+func (m *BookRepo[S]) ExistsByISBN(ctx context.Context, isbns ...model.ISBN) (*model.Book, bool, error) {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+	for _, isbn := range isbns {
+		if book, exists := m.byISBN[isbn]; exists {
+			return book, true, nil
+		}
+	}
+	return nil, false, nil
 }
 
 func (m *BookRepo[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*model.Book, error) {
@@ -109,7 +120,7 @@ func (m *BookRepo[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*model.
 	defer m.mut.RUnlock()
 
 	if books, exists := m.byAuthorID[authorID]; !exists {
-		return nil, repository.ErrorNotFound
+		return nil, repository.ErrNotFound
 	} else {
 		return books, nil
 	}
