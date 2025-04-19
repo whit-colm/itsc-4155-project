@@ -23,7 +23,7 @@ type Err struct {
 	Err  error
 }
 
-func (e *Err) Error() string {
+func (e Err) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %s", e.Code, e.Err)
 	}

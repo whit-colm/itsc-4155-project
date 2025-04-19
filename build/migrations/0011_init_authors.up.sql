@@ -3,8 +3,16 @@ CREATE TABLE authors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
     family_name TEXT NOT NULL,
     given_name TEXT,
+    bio TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE author_identifiers (
+    author_id UUID NOT NULL REFERENCES authors (id) ON DELETE CASCADE,
+    identifier TEXT NOT NULL,
+    PRIMARY KEY (author_id, identifier),
+    type CHAR(6) NOT NULL CHECK (type IN ('orcid', 'viaf', 'opnlib')),
 );
 
 -------------

@@ -89,7 +89,7 @@ func (j jsonParsableError) MarshalJSON() ([]byte, error) {
 var conf *oauth2.Config
 
 // Configure all backend endpoints
-func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c *oauth2.Config) {
+func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c *oauth2.Config, scraper repository.BookScraper) {
 	conf = c
 
 	api := router.Group("/api")
@@ -97,7 +97,7 @@ func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c
 	s := dataStore{rp.Store}
 	api.GET("/health", s.Health)
 
-	sh := searchHandle[S]{rp.Book, rp.Author, rp.Comment}
+	sh := searchHandle[S]{rp.Book, rp.Author, rp.Comment, scraper}
 	api.GET("/search", wrap(sh.Search))
 
 	ah = authHandle{rp.User, rp.Auth}

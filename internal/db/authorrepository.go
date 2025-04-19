@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
@@ -46,6 +47,25 @@ func (a *authorRepository[S]) Create(ctx context.Context, author *model.Author) 
 	return tx.Commit(ctx)
 }
 
+func (a *authorRepository[S]) ExistsByName(ctx context.Context, name string) (*model.Author, bool, error) {
+	const errorCaller string = "get author by name"
+	var author model.Author
+	if err := a.db.QueryRow(ctx,
+		`SELECT
+			 id,
+			 COALESCE(givenname, '') as gn,
+			 familyname
+		FROM authors
+		WHERE TRIM((gn || ' ' || familyname)) = $1`,
+		name,
+	).Scan(
+		&author.ID, &author.GivenName, &author.FamilyName,
+	); err != nil {
+		return nil, false, fmt.Errorf("%v: %w", errorCaller, err)
+	}
+	return &author, author.ID != uuid.Nil, nil
+}
+
 // Update implements repository.BookManager.
 func (a *authorRepository[S]) Update(ctx context.Context, to *model.Author) (*model.Author, error) {
 	panic("unimplemented")
@@ -77,7 +97,7 @@ func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model
 	if err := a.db.QueryRow(ctx,
 		`SELECT
 			a.id,
-			a.givenname,
+			COALESCE(givenname, ''),
 			a.familyname
 		FROM authors a
 		WHERE a.id = $1`,
@@ -102,7 +122,7 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 			 paradedb.score(id),
 			 id,
 			 family_name,
-			 given_name
+			 COALESCE(givenname, '')
 		 FROM authors
 	 	 WHERE family_name @@@ $1 OR given_name @@@ $1
 		 ORDER BY paradedb.score(id) DESC, family_name DESC
@@ -117,7 +137,7 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 
 	for rows.Next() {
 		var (
-			s float32
+			s float64
 			u model.Author
 		)
 

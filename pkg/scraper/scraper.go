@@ -5,271 +5,256 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
+	"sync"
 	"time"
-	"strings"
 
-	"cloud.google.com/go/civil"
 	"github.com/google/uuid"
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-// URL for theGoogle Books API
 const (
-	googleBooksAPI = "https://www.googleapis.com/books/v1/volumes?q=isbn:%s"
-	maxContentSize = 2 * 1024
+	googleBooksAPI string = "https://www.googleapis.com/books/v1/volumes?&orderBy=relevance&maxResults=%d&startIndex=%d&q=%s&fields=items(selfLink)"
+	maxLimit       int    = 40
 )
 
-// Struct for the response from the API
-type GoogleBooksResponse struct {
-	Items []struct {
-		VolumeInfo VolumeInfo `json:"volumeInfo"`
-	} `json:"items"`
+type BookScraper struct {
+	blob repository.BlobManager
+	book repository.BookManager[*model.Book]
+	athr repository.AuthorManager[*model.Author]
 }
 
-// Struct to hold identifiers
-type Identifier struct {
-	Type       string `json:"type"`
-	Identifier string `json:"identifier"`
+func NewBookScraper(blob repository.BlobManager, book repository.BookManager[*model.Book], athr repository.AuthorManager[*model.Author]) *BookScraper {
+	return &BookScraper{
+		blob: blob,
+		book: book,
+		athr: athr,
+	}
 }
 
-// Struct for different image sizes
-type ImageLinks struct {
-	Thumbnail  string `json:"thumbnail"`
-	Small      string `json:"small"`
-	Medium     string `json:"medium"`
-	Large      string `json:"large"`
-	ExtraLarge string `json:"extraLarge"`
+func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, query string, iCh chan<- int, eCh chan<- error, wg *sync.WaitGroup) {
+	defer wg.Done()
+	const errorCaller string = "Google Books Scraper"
+	if limit > maxLimit {
+		eCh <- fmt.Errorf("%s: limit %d is greater than %d, which is the maximum allowed by Google Books API",
+			errorCaller, limit, maxLimit,
+		)
+		return
+	}
+
+	url := fmt.Sprintf(googleBooksAPI, limit, offset, query)
+	resp, err := http.Get(url)
+	if err != nil {
+		eCh <- fmt.Errorf("%v: %w", errorCaller, err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		// If we hit the rate limit, we wait for half a second to a second
+		// before retrying. This is a simple backoff strategy.
+		// This is not a perfect solution, but it should work for most cases.
+		randDelay := 500 + rand.Intn(500)
+		time.Sleep(time.Millisecond * time.Duration(randDelay))
+		s.scrapeGoogleBooks(ctx, offset, limit, query, iCh, eCh, wg)
+		return
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		eCh <- fmt.Errorf("%v: %w", errorCaller, err)
+		return
+	}
+
+	var aux struct {
+		Total int `json:"totalItems"`
+		Items []struct {
+			SelfLink string `json:"selfLink"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(respBody, &aux); err != nil {
+		eCh <- fmt.Errorf("%v: %w", errorCaller, err)
+		return
+	} else if aux.Total == 0 {
+		iCh <- -1 // No books found
+		return
+	}
+
+	/*** Prepare request for each self-link ***/
+	const fields string = "fields=volumeInfo(title,subtitle,authors,publishedDate,description,industryIdentifiers,categories,imageLinks)"
+	var links []string = make([]string, len(aux.Items))
+	for i, v := range aux.Items {
+		links[i] = v.SelfLink + "&" + fields
+	}
+
+	newBook := func(link string) (int, error) {
+		const errorCaller string = "self-link scrape"
+		resp, err := http.Get(link)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", errorCaller, err)
+		}
+		defer resp.Body.Close()
+
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %w", errorCaller, err)
+		}
+		var aux struct {
+			VolumeInfo struct {
+				Title               string       `json:"title"`
+				Subtitle            string       `json:"subtitle"`
+				Authors             []string     `json:"authors"`
+				PublishedDate       string       `json:"publishedDate"`
+				Description         string       `json:"description"`
+				IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
+				Categories          []string     `json:"categories"`
+				ImageLinks          ImageLinks   `json:"imageLinks"`
+			} `json:"volumeInfo"`
+		}
+		if err := json.Unmarshal(respBody, &aux); err != nil {
+			return 0, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+		v := aux.VolumeInfo
+		b := model.Book{
+			ID:          uuid.Nil,
+			Title:       v.Title,
+			Subtitle:    v.Subtitle,
+			Description: v.Description,
+			Published:   parsePublishedDate(v.PublishedDate),
+			ISBNs:       extractISBN(v.IndustryIdentifiers),
+			CoverImage:  uuid.Nil,
+			ThumbImage:  uuid.Nil,
+		}
+		if _, exists, err := s.book.ExistsByISBN(ctx, b.ISBNs...); err != nil {
+			return 0, fmt.Errorf("%v: %w", errorCaller, err)
+		} else if exists {
+			return 0, nil
+		}
+
+		// Now we know the book does not exist, so we can store it
+		// Store thumbnail image
+		storeBlobbedUrl := func(url string, to *uuid.UUID) error {
+			b, err := urlToBlob(ctx, url)
+			if err != nil {
+				return fmt.Errorf("%v: %w", errorCaller, err)
+			}
+			if err := s.blob.Create(ctx, b); err != nil {
+				return fmt.Errorf("%v: %w", errorCaller, err)
+			}
+			*to = b.ID
+			return nil
+		}
+		// Set thumbnail and cover images
+		if v.ImageLinks.Thumbnail != "" {
+			storeBlobbedUrl(v.ImageLinks.Thumbnail, &b.ThumbImage)
+		} else if v.ImageLinks.SmallThumbnail != "" {
+			storeBlobbedUrl(v.ImageLinks.SmallThumbnail, &b.ThumbImage)
+		}
+
+		if v.ImageLinks.ExtraLarge != "" {
+			storeBlobbedUrl(v.ImageLinks.ExtraLarge, &b.CoverImage)
+		} else if v.ImageLinks.Large != "" {
+			storeBlobbedUrl(v.ImageLinks.Large, &b.CoverImage)
+		} else if v.ImageLinks.Medium != "" {
+			storeBlobbedUrl(v.ImageLinks.Medium, &b.CoverImage)
+		} else if v.ImageLinks.Small != "" {
+			storeBlobbedUrl(v.ImageLinks.Small, &b.CoverImage)
+		} else {
+			b.CoverImage = b.ThumbImage
+		}
+
+		// Set book ID
+		id, err := uuid.NewV7()
+		if err != nil {
+			return 0, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+		b.ID = id
+
+		// Authors
+		for _, authorName := range v.Authors {
+			// Check if the author already exists
+			author, exists, err := s.athr.ExistsByName(ctx, "")
+			if err != nil {
+				return 0, fmt.Errorf("%v: %w", errorCaller, err)
+			}
+			if !exists {
+				// Create a new author if it does not exist
+				// TODO: find a method to get the author from a tertiary source
+				// as google books does not provide a method of discriminating
+				// between authors with the same name.
+				author = &model.Author{
+					ID:         uuid.New(),
+					GivenName:  "",
+					FamilyName: authorName,
+				}
+				if err := s.athr.Create(ctx, author); err != nil {
+					return 0, fmt.Errorf("%v: %w", errorCaller, err)
+				}
+			}
+			b.AuthorIDs = append(b.AuthorIDs, author.ID)
+		}
+
+		// Commit the book to the datastore
+		if err := s.book.Create(ctx, &b); err != nil {
+			return 0, fmt.Errorf("%v: %w", errorCaller, err)
+		}
+		return 1, nil
+	}
+
+	total := 0
+	for _, link := range links {
+		n, err := newBook(link)
+		if err != nil {
+			eCh <- err
+			return
+		}
+		total += n
+	}
+	iCh <- total
 }
 
-// Struct for main book information
-type VolumeInfo struct {
-	Title               string       `json:"title"`
-	Authors             []string     `json:"authors"`
-	PublishedDate       string       `json:"publishedDate"`
-	Description         string       `json:"description"`
-	IndustryIdentifiers []Identifier `json:"industryIdentifiers"`
-	ImageLinks          ImageLinks   `json:"imageLinks"`
+func (s *BookScraper) Scrape(ctx context.Context, offset, limit int, query string) (int, error) {
+	const errorCaller string = "scrape"
+
+	rem := limit % maxLimit
+	nchunks := limit / maxLimit
+	agents := nchunks
+	if rem != 0 {
+		agents++
+	}
+	// asynchronous function to fetch book data from self-link
+	// and store it (and its blob, author, etc) in the database
+	// if it does not already exist
+	var wg sync.WaitGroup
+	wg.Add(agents)
+	errCh := make(chan error, agents)
+	addCh := make(chan int, agents)
+
+	if rem != 0 {
+		go s.scrapeGoogleBooks(ctx, offset+nchunks*maxLimit, rem, query, addCh, errCh, &wg)
+	}
+	for i := range nchunks {
+		go s.scrapeGoogleBooks(ctx, offset+i*maxLimit, maxLimit, query, addCh, errCh, &wg)
+	}
+	wg.Wait()
+	close(errCh)
+	close(addCh)
+
+	// Check for errors
+	for err := range errCh {
+		if err != nil {
+			return 0, err
+		}
+	}
+	total := 0
+	for added := range addCh {
+		total += added
+	}
+	// Return the number of books stored
+	return total, nil
 }
 
 // Gets the book data using ISBN and converts it
-func FetchBookByISBN(ctx context.Context, isbn string, blobManager repository.BlobManager) (*model.Book, error) {
-	if !isValidISBN(isbn) {
-		return nil, fmt.Errorf("invalid ISBN format")
-	}
-
-	url := fmt.Sprintf(googleBooksAPI, isbn)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch data: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %v", err)
-	}
-
-	var googleResp GoogleBooksResponse
-	if err := json.Unmarshal(body, &googleResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
-	}
-
-	if len(googleResp.Items) == 0 {
-		return nil, fmt.Errorf("no book found for ISBN: %s", isbn)
-	}
-
-	bookData := googleResp.Items[0].VolumeInfo
-
-	fmt.Printf("Parsed Title: %s\n", bookData.Title)
-	fmt.Printf("Parsed Authors: %v\n", bookData.Authors)
-
-	var published civil.Date
-	if bookData.PublishedDate != "" {
-		published = parsePublishedDate(bookData.PublishedDate)
-	}
-
-	// Stores large description
-	descriptionRef := uuid.UUID{}
-	if len(bookData.Description) > maxContentSize {
-		descriptionRef, err = storeLargeContent(ctx, bookData.Description, blobManager)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Stores cover image
-	imageRef := uuid.UUID{}
-	if bookData.ImageLinks.Thumbnail != "" {
-		imageRef, err = storeImage(ctx, bookData.ImageLinks.Thumbnail, blobManager)
-		if err != nil {
-			fmt.Printf("Warning: failed to store image (continuing without): %v\n", err)
-		}
-	}
-
-	// Parse first author name and create author model
-	firstAuthorName := getFirstAuthor(bookData.Authors)
-	author := parseSingleAuthor(firstAuthorName)
-	authorID := author.ID
-
-	// Create book model
-	book := &model.Book{
-		ID:          uuid.New(),
-		Title:       bookData.Title,
-		AuthorIDs:   uuid.UUIDs{authorID},
-		Published:   published,
-		ISBNs:       extractISBN(bookData.IndustryIdentifiers),
-		Description: descriptionRef,
-		CoverImage:  imageRef,
-	}
-
-	return book, nil
-}
-
-// extractISBN extracts the ISBN
-func extractISBN(identifiers []Identifier) []model.ISBN {
-	var isbns []model.ISBN
-
-	for _, id := range identifiers {
-		if id.Type == "ISBN_13" {
-			isbns = append(isbns, model.MustNewISBN(id.Identifier, model.ISBN13))
-		}
-	}
-
-	for _, id := range identifiers {
-		if id.Type == "ISBN_10" {
-			isbns = append(isbns, model.MustNewISBN(id.Identifier, model.ISBN10))
-		}
-	}
-
-	return isbns
-}
-
-// storeLargeContent saves large text content
-func storeLargeContent(ctx context.Context, content string, blobManager repository.BlobManager) (uuid.UUID, error) {
-
-	ref := uuid.New()
-	blob := model.Blob{
-        ID:       ref,                       
-        Content:  strings.NewReader(content), 
-        Metadata: make(map[string]string),   
-    }
-
-    if err := blobManager.Create(ctx, &blob); err != nil {
-        return uuid.UUID{}, fmt.Errorf("failed to store blob: %w", err)
-    }
-    return ref, nil
-}
-
-// storeImage downloads and stores an image
-func storeImage(ctx context.Context, imageURL string, blobManager repository.BlobManager) (uuid.UUID, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to create image request: %v", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to fetch image: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return uuid.Nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	ref := uuid.New()
-    blob := model.Blob{
-        ID:      ref,
-        Content: resp.Body, 
-        Metadata: map[string]string{
-            "content-type": resp.Header.Get("Content-Type"),
-            "source-url":   imageURL,
-            "size":         resp.Header.Get("Content-Length"), 
-        },
-    }
-
-    
-    if err := blobManager.Create(ctx, &blob); err != nil {
-		return uuid.Nil, fmt.Errorf("failed to store image: %v", err)
-	}
-
-    return ref, nil
-}
-
-// StoreBook saves the data into the database
-func StoreBook(ctx context.Context, book *model.Book, bookManager repository.BookManager[*model.Book]) error {
-	if book == nil {
-        return fmt.Errorf("book cannot be nil")
-    }
-    
-    if book.Title == "" {
-        return fmt.Errorf("book title cannot be empty")
-    }
-    
-    err := bookManager.Create(ctx, book)
-    if err != nil {
-        return fmt.Errorf("failed to store book: %v", err)
-    }
-    return nil
-}
-
-// getFirstAuthor returns first author or "Unknown Author"
-func getFirstAuthor(authors []string) string {
-	if len(authors) > 0 {
-		return authors[0]
-	}
-	return "Unknown Author"
-}
-
-// Converts a string date to civil.Date using different layouts
-func parsePublishedDate(dateStr string) civil.Date {
-	layouts := []string{"2006-01-02", "2006-01", "2006"}
-	for _, layout := range layouts {
-		if t, err := time.Parse(layout, dateStr); err == nil {
-			return civil.DateOf(t)
-		}
-	}
-	fmt.Printf("Warning: could not parse date: %s\n", dateStr)
-	return civil.Date{} 
-}
-
-// Splits a full name into given and family name
-func parseSingleAuthor(fullName string) *model.Author {
-    fullName = strings.TrimSpace(fullName)
-    if fullName == "" {
-        return &model.Author{
-            ID:         uuid.New(),
-            GivenName:  "Unknown",
-            FamilyName: "Author",
-        }
-    }
-
-    if lastSpace := strings.LastIndex(fullName, " "); lastSpace != -1 {
-        return &model.Author{
-            ID:         uuid.New(),
-            GivenName:  strings.TrimSpace(fullName[:lastSpace]),
-            FamilyName: strings.TrimSpace(fullName[lastSpace+1:]),
-        }
-    }
-
-    return &model.Author{
-        ID:         uuid.New(),
-        GivenName:  fullName,
-        FamilyName: "",
-    }
-
-}
-
-// Checks if ISBN is either 10 or 13 digits
-func isValidISBN(isbn string) bool {
-    cleanISBN := strings.ReplaceAll(strings.ReplaceAll(isbn, "-", ""), " ", "")
-    
-    if len(cleanISBN) != 10 && len(cleanISBN) != 13 {
-        return false
-    }
-
-	return true
+func (s *BookScraper) ScrapeISBN(ctx context.Context, isbn model.ISBN) (int, error) {
+	return s.Scrape(ctx, 0, 1, fmt.Sprintf("isbn:%s", isbn.String()))
 }

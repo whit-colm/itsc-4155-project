@@ -13,11 +13,19 @@ const ISBNApiVersion string = "isbn.itsc-4155-group-project.edu.whits.io/v1"
 var (
 	isbn10re *regexp.Regexp
 	isbn13re *regexp.Regexp
+	//googidre *regexp.Regexp
+	//lccnidre *regexp.Regexp
+	//oclcidre *regexp.Regexp
 )
 
 func init() {
 	isbn10re = regexp.MustCompile(`\d|[Xx]$`)
 	isbn13re = regexp.MustCompile(`\d`)
+	// NOTE: This is a guess, we don't actually know what the rules for
+	// google ids are.
+	//gvolidre = regexp.MustCompile(`[A-z0-9\-]{12}`)
+	//lccnidre = regexp.MustCompile(``)
+	//oclcidre = regexp.MustCompile(``)
 }
 
 type IsbnVersion int
@@ -29,10 +37,13 @@ func (v IsbnVersion) APIVersion() string {
 const (
 	ISBN10 IsbnVersion = iota
 	ISBN13
+	//GVOLID
+	//LCCNID
+	//OCLCID
 )
 
 func (v IsbnVersion) String() string {
-	return [...]string{"isbn10", "isbn13"}[v]
+	return [...]string{"isbn10", "isbn13" /*, "gvolID", "lccn", "oclc"*/}[v]
 }
 
 // Get the regex necessary to parse a valid ISBN of a given type from
@@ -40,11 +51,11 @@ func (v IsbnVersion) String() string {
 //
 // We use this in combination with .FindAllString(..., -1) in our
 func (v IsbnVersion) regex() *regexp.Regexp {
-	return [...]*regexp.Regexp{isbn10re, isbn13re}[v]
+	return [...]*regexp.Regexp{isbn10re, isbn13re /*, googidre, lccnidre, oclcidre*/}[v]
 }
 
 func (v IsbnVersion) Len() int {
-	return [...]int{10, 13}[v]
+	return [...]int{10, 13, 12}[v]
 }
 
 /**************************************
