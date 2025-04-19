@@ -20,16 +20,62 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
   const [userVoteMap, setUserVoteMap] = useState({}); // Store user votes separately
   const [totalVoteMap, setTotalVoteMap] = useState({}); // Store total votes separately
 
-  // Fetch initial comments
+  // Fetch vote status for multiple comments using the batch endpoint
+  const fetchVoteStatuses = async () => {
+      const token = getJwt() || propJwt;
+      if (!token || !bookId) return; // Need token and bookId
+
+      try {
+          // Call the batch endpoint for the book
+          const response = await fetch(`/api/books/${bookId}/reviews/votes`, {
+              headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (!response.ok) {
+              // Handle cases like 401 Unauthorized or other errors
+              if (response.status === 401) {
+                  console.warn("Unauthorized to fetch vote statuses.");
+                  setUserVoteMap({}); // Clear votes if unauthorized
+                  return;
+              }
+              const errorData = await response.json();
+              throw new Error(errorData.summary || `Failed vote status fetch for book ${bookId}`);
+          }
+
+          // Backend returns map[uuid.UUID]int8 (JSON object where keys are comment IDs)
+          const voteMapResponse = await response.json();
+
+          // Ensure the response is an object
+          if (typeof voteMapResponse === 'object' && voteMapResponse !== null) {
+              // Convert vote values (which might be int8) to numbers for JS consistency if needed,
+              // though direct assignment usually works.
+              const processedVoteMap = {};
+              for (const commentId in voteMapResponse) {
+                  processedVoteMap[commentId] = Number(voteMapResponse[commentId]);
+              }
+              setUserVoteMap(processedVoteMap);
+          } else {
+              console.error("Unexpected format for vote statuses response:", voteMapResponse);
+              setUserVoteMap({}); // Reset on unexpected format
+          }
+
+      } catch (error) {
+          console.error('Error fetching batch vote statuses:', error);
+          // Optionally set a non-blocking error message
+          // setError("Could not fetch vote statuses.");
+          setUserVoteMap({}); // Clear votes on error
+      }
+  };
+
+  // Fetch initial comments and then vote statuses
   useEffect(() => {
-    const fetchComments = async () => {
+    const fetchCommentsAndVotes = async () => {
       setLoading(true);
       setError(null);
       const token = getJwt() || propJwt; // Use token from cookie or prop
 
       try {
         const response = await fetch(`/api/books/${bookId}/reviews`, {
-          // Conditionally add Authorization header
           headers: { ...(token && { Authorization: `Bearer ${token}` }) }
         });
 
@@ -46,14 +92,13 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
         // Initialize total votes map
         const initialTotalVotes = {};
         data.forEach(comment => {
-            initialTotalVotes[comment.ID] = comment.Votes || 0; // Use ID and Votes from Go model
+            initialTotalVotes[comment.ID] = comment.Votes || 0;
         });
         setTotalVoteMap(initialTotalVotes);
 
-
-        // Fetch vote status for all comments if logged in
+        // Fetch vote status for all comments using the batch endpoint if logged in
         if (token && data.length > 0) {
-          fetchVoteStatuses(data.map(c => c.ID)); // Use ID from Go model
+          await fetchVoteStatuses(); // Call the updated batch fetch function
         } else {
           setUserVoteMap({}); // Clear votes if not logged in
         }
@@ -69,50 +114,10 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
     };
 
     if (bookId) {
-        fetchComments();
+        fetchCommentsAndVotes();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId, propJwt]); // Rerun if bookId or jwt changes
-
-  // Fetch vote status for multiple comments (using Voted endpoint)
-  const fetchVoteStatuses = async (commentIds) => {
-      const token = getJwt() || propJwt;
-      if (!token || commentIds.length === 0) return;
-
-      // Use the batch endpoint if available, otherwise call individually
-      // Assuming individual calls for now based on previous logic
-      const newVoteMap = { ...userVoteMap }; // Start with existing votes
-      let fetchError = false;
-
-      for (const commentId of commentIds) {
-          try {
-              const response = await fetch(`/api/comments/${commentId}/vote`, { // GET request to Voted endpoint
-                  headers: { Authorization: `Bearer ${token}` }
-              });
-
-              if (response.status === 404) { // No vote found
-                  newVoteMap[commentId] = 0;
-                  continue;
-              }
-              if (!response.ok) throw new Error(`Failed vote status fetch for ${commentId}`);
-
-              // Voted endpoint returns map[uuid.UUID]int8
-              const voteMapResponse = await response.json();
-              newVoteMap[commentId] = voteMapResponse[commentId] ?? 0; // Extract vote, default to 0
-
-          } catch (error) {
-              console.error('Error fetching vote status for comment', commentId, ':', error);
-              newVoteMap[commentId] = undefined; // Mark as unknown on error
-              fetchError = true;
-          }
-      }
-      setUserVoteMap(newVoteMap); // Update state once after all fetches
-      if (fetchError) {
-          // Optionally set a non-blocking error message
-          // setError("Could not fetch all vote statuses.");
-      }
-  };
-
 
   const handleAddComment = async () => {
     if (!newComment.trim()) {
@@ -166,6 +171,7 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
       // Update vote maps with actual ID and initial votes
       setUserVoteMap(prev => {
           const { [tempId]: _, ...rest } = prev; // Remove temp ID entry
+          // Set initial vote for the new comment to 0 (as user hasn't explicitly voted yet via UI)
           return { ...rest, [newCommentData.ID]: 0 };
       });
       setTotalVoteMap(prev => {
