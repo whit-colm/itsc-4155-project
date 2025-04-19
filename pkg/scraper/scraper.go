@@ -3,10 +3,12 @@ package scraper
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -16,7 +18,7 @@ import (
 )
 
 const (
-	googleBooksAPI string = "https://www.googleapis.com/books/v1/volumes?&orderBy=relevance&maxResults=%d&startIndex=%d&q=%s&fields=items(selfLink)"
+	googleBooksAPI string = "https://www.googleapis.com/books/v1/volumes?&orderBy=relevance&maxResults=%d&startIndex=%d&q=%s"
 	maxLimit       int    = 40
 )
 
@@ -43,7 +45,6 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 		)
 		return
 	}
-
 	url := fmt.Sprintf(googleBooksAPI, limit, offset, query)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -58,6 +59,9 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 		randDelay := 500 + rand.Intn(500)
 		time.Sleep(time.Millisecond * time.Duration(randDelay))
 		s.scrapeGoogleBooks(ctx, offset, limit, query, iCh, eCh, wg)
+		return
+	} else if resp.StatusCode != http.StatusOK {
+		eCh <- fmt.Errorf("%s: received status code %d from Google Books API", errorCaller, resp.StatusCode)
 		return
 	}
 	respBody, err := io.ReadAll(resp.Body)
@@ -81,10 +85,10 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 	}
 
 	/*** Prepare request for each self-link ***/
-	const fields string = "fields=volumeInfo(title,subtitle,authors,publishedDate,description,industryIdentifiers,categories,imageLinks)"
+	//const fields string = "fields=volumeInfo(title,subtitle,authors,publishedDate,description,industryIdentifiers,categories,imageLinks)"
 	var links []string = make([]string, len(aux.Items))
 	for i, v := range aux.Items {
-		links[i] = v.SelfLink + "&" + fields
+		links[i] = v.SelfLink /*+ "&" + fields*/
 	}
 
 	newBook := func(link string) (int, error) {
@@ -126,7 +130,9 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 			ThumbImage:  uuid.Nil,
 		}
 		if _, exists, err := s.book.ExistsByISBN(ctx, b.ISBNs...); err != nil {
-			return 0, fmt.Errorf("%v: %w", errorCaller, err)
+			if !errors.Is(err, repository.ErrorNotFound) {
+				return 0, fmt.Errorf("%v: %w", errorCaller, err)
+			}
 		} else if exists {
 			return 0, nil
 		}
@@ -175,7 +181,10 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 			// Check if the author already exists
 			author, exists, err := s.athr.ExistsByName(ctx, "")
 			if err != nil {
-				return 0, fmt.Errorf("%v: %w", errorCaller, err)
+				fmt.Println("TODO: handle error")
+				/*if !errors.Is(err, repository.ErrorNotFound) {
+					return 0, fmt.Errorf("%v: %w", errorCaller, err)
+				}*/
 			}
 			if !exists {
 				// Create a new author if it does not exist
@@ -215,6 +224,10 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 
 func (s *BookScraper) Scrape(ctx context.Context, offset, limit int, query string) (int, error) {
 	const errorCaller string = "scrape"
+	// Encode the query to be URL-safe if it is not already
+	if decoded, err := url.QueryUnescape(query); err == nil && decoded == query {
+		query = url.QueryEscape(query)
+	}
 
 	rem := limit % maxLimit
 	nchunks := limit / maxLimit

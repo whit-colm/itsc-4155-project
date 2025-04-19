@@ -12,7 +12,7 @@ CREATE TABLE author_identifiers (
     author_id UUID NOT NULL REFERENCES authors (id) ON DELETE CASCADE,
     identifier TEXT NOT NULL,
     PRIMARY KEY (author_id, identifier),
-    type CHAR(6) NOT NULL CHECK (type IN ('orcid', 'viaf', 'opnlib')),
+    type CHAR(6) NOT NULL CHECK (type IN ('orcid', 'viaf', 'opnlib'))
 );
 
 -------------

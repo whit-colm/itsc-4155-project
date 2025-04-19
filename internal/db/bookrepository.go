@@ -41,9 +41,10 @@ func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error 
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO books (id, title, published)
-		 VALUES ($1, $2, $3)`,
-		book.ID, book.Title, book.Published.In(time.UTC),
+		`INSERT INTO books (id, title, subtitle, description, published, cover_image, thumbnail_image)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		book.ID, book.Title, book.Subtitle, book.Description,
+		book.Published.In(time.UTC), book.CoverImage, book.ThumbImage,
 	)
 	if err != nil {
 		return fmt.Errorf("create book: %w", err)
@@ -103,14 +104,14 @@ func (b *bookRepository[S]) ExistsByISBN(ctx context.Context, isbns ...model.ISB
 
 func (b bookRepository[S]) queryString(clause string, search bool) string {
 	return fmt.Sprintf(`SELECT
-		 %v,
+		 %v
 		 b.id,
 		 b.title,
 		 COALESCE(b.subtitle, ''),
 		 COALESCE(b.description, ''),
 		 b.published,
 		 COALESCE(
-			 json_agg(a.id) FILTER (WHERE a.id IS NOT NULL),
+			 json_agg(a.author_id) FILTER (WHERE a.author_id IS NOT NULL),
 			 '[]'::json
 		 ),
 		 COALESCE(
@@ -122,7 +123,11 @@ func (b bookRepository[S]) queryString(clause string, search bool) string {
 		 ),
 		 b.cover_image,
 		 b.thumbnail_image
-		 WHERE %v`,
+		 FROM books b
+		 LEFT JOIN isbns i ON i.book_id = b.id
+		 LEFT JOIN books_authors a ON a.book_id = b.id
+		 WHERE %v
+		 GROUP BY b.id`,
 		func() string {
 			if search {
 				return "paradedb.score(b.id),"
@@ -145,14 +150,14 @@ func (b bookRepository[S]) rowsParse(rows pgx.Rows, search bool) (*model.Book, f
 	if search {
 		if err := rows.Scan(
 			&score, &book.ID, &book.Title, &book.Subtitle, &book.Description,
-			&published, &authorIDs, &isbns, book.CoverImage, book.ThumbImage,
+			&published, &authorIDs, &isbns, &book.CoverImage, &book.ThumbImage,
 		); err != nil {
 			return nil, -1.0, err
 		}
 	} else {
 		if err := rows.Scan(
 			&book.ID, &book.Title, &book.Subtitle, &book.Description,
-			&published, &authorIDs, &isbns, book.CoverImage, book.ThumbImage,
+			&published, &authorIDs, &isbns, &book.CoverImage, &book.ThumbImage,
 		); err != nil {
 			return nil, -1.0, err
 		}

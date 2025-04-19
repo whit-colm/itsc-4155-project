@@ -83,14 +83,16 @@ func urlToBlob(ctx context.Context, imageURL string) (*model.Blob, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
-	defer resp.Body.Close()
+	// We very intentionally do not close the body here, as we want to return it as part of the Blob
 
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, fmt.Errorf("%v: unexpected status code %d", errorCaller, resp.StatusCode)
 	}
 
 	id, err := uuid.NewV7()
 	if err != nil {
+		resp.Body.Close()
 		return nil, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/whit-colm/itsc-4155-project/pkg/model"
@@ -36,7 +37,7 @@ func (a *authorRepository[S]) Create(ctx context.Context, author *model.Author) 
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO authors (id, familyname, givenname)
+		`INSERT INTO authors (id, family_name, given_name)
 		 VALUES ($1, $2, $3)`,
 		author.ID, author.GivenName, author.GivenName,
 	)
@@ -53,14 +54,17 @@ func (a *authorRepository[S]) ExistsByName(ctx context.Context, name string) (*m
 	if err := a.db.QueryRow(ctx,
 		`SELECT
 			 id,
-			 COALESCE(givenname, '') as gn,
-			 familyname
+			 COALESCE(given_name, ''),
+			 family_name
 		FROM authors
-		WHERE TRIM((gn || ' ' || familyname)) = $1`,
+		WHERE TRIM((given_name || ' ' || family_name)) = $1`,
 		name,
 	).Scan(
 		&author.ID, &author.GivenName, &author.FamilyName,
 	); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, false, repository.Err{Code: repository.ErrorNotFound, Err: fmt.Errorf("%s: %w", errorCaller, err)}
+		}
 		return nil, false, fmt.Errorf("%v: %w", errorCaller, err)
 	}
 	return &author, author.ID != uuid.Nil, nil
@@ -97,7 +101,7 @@ func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model
 	if err := a.db.QueryRow(ctx,
 		`SELECT
 			a.id,
-			COALESCE(givenname, ''),
+			COALESCE(given_name, ''),
 			a.familyname
 		FROM authors a
 		WHERE a.id = $1`,
@@ -122,7 +126,7 @@ func (a *authorRepository[S]) Search(ctx context.Context, offset int, limit int,
 			 paradedb.score(id),
 			 id,
 			 family_name,
-			 COALESCE(givenname, '')
+			 COALESCE(given_name, '')
 		 FROM authors
 	 	 WHERE family_name @@@ $1 OR given_name @@@ $1
 		 ORDER BY paradedb.score(id) DESC, family_name DESC
