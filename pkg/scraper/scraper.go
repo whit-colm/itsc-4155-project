@@ -243,7 +243,7 @@ func (s *BookScraper) Scrape(ctx context.Context, offset, limit int, query strin
 	// Check for errors
 	for err := range errCh {
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("%v: %w", errorCaller, err)
 		}
 	}
 	total := 0
