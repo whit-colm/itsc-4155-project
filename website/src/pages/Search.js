@@ -4,7 +4,7 @@ import '../styles/Search.css';
 
 // Use the exact apiVersion strings from Go model constants
 const BOOK_SUMMARY_API_VERSION = "booksummary.itsc-4155-group-project.edu.whits.io/v1alpha2"; // Updated to v1alpha2
-const AUTHOR_API_VERSION = "author.itsc-4155-group-project.edu.whits.io/v1alpha2";         // Updated to v1alpha2
+const AUTHOR_API_VERSION = "author.itsc-4155-group-project.edu.whits.io/v1alpha3";         // Updated to v1alpha3
 const COMMENT_API_VERSION = "comment.itsc-4155-group-project.edu.whits.io/v1alpha1"; // Remains v1alpha1
 
 function Search() {
@@ -179,21 +179,21 @@ function Search() {
                   break; // Prevent further processing if ID is missing
               }
               title = result.title || 'Untitled Book';
-              details = result.authors?.map(a => `${a.givenname || ''} ${a.familyname || ''}`.trim()).join(', ') || 'Unknown Author';
+              details = result.authors?.map(a => `${a.given_name || ''} ${a.family_name || ''}`.trim()).join(', ') || 'Unknown Author';
               details = `by ${details}`;
               break;
-            case AUTHOR_API_VERSION: // Now correctly matches v1alpha2
+            case AUTHOR_API_VERSION: // Now correctly matches v1alpha3
               // Ensure result.id exists before using it
               if (result.id) {
                   key = result.id;
-                  linkTo = `/user/${result.id}`; // Link to user profile page
+                  linkTo = `/authors/${result.id}`;
               } else {
                   console.warn("Author result missing ID:", result);
                   title = "Invalid Author Data";
                   details = "Missing author identifier.";
                   break; // Prevent further processing if ID is missing
               }
-              title = `${result.givenname || ''} ${result.familyname || ''}`.trim() || 'Unknown Author';
+              title = `${result.given_name || ''} ${result.family_name || ''}`.trim() || 'Unknown Author';
               details = `Author`;
               break;
             case COMMENT_API_VERSION: // Still correctly matches v1alpha1

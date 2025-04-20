@@ -10,23 +10,29 @@ function BookDetails({ jwt }) {
   const [coverUrl, setCoverUrl] = useState(null);
   const [error, setError] = useState(null);
   const [loadingAuthors, setLoadingAuthors] = useState(false);
+  const [authorFetchError, setAuthorFetchError] = useState(false);
 
   const fetchAuthorDetails = async (authorId) => {
+    setAuthorFetchError(false);
     try {
-      const response = await fetch(`/api/user/${authorId}`, {
-        headers: { Authorization: `Bearer ${jwt}` },
+      const response = await fetch(`/api/authors/${authorId}`, {
+        headers: {
+          ...(jwt && { Authorization: `Bearer ${jwt}` }),
+        },
       });
       if (!response.ok) {
         console.error(`Failed to fetch author ${authorId}: ${response.statusText}`);
+        setAuthorFetchError(true);
         return null;
       }
       const authorData = await response.json();
       return {
         id: authorData.id,
-        name: authorData.displayName || authorData.username || 'Unknown Author',
+        name: `${authorData.family_name || ''}`.trim() || 'Unknown Author',
       };
     } catch (err) {
       console.error(`Error fetching author ${authorId}:`, err);
+      setAuthorFetchError(true);
       return null;
     }
   };
@@ -34,6 +40,7 @@ function BookDetails({ jwt }) {
   const fetchBook = async (retries = 3) => {
     setError(null);
     setLoadingAuthors(false);
+    setAuthorFetchError(false);
     try {
       const response = await fetch(`/api/books/${bookId}`, {
         method: 'GET',
@@ -120,10 +127,12 @@ function BookDetails({ jwt }) {
           <strong>Author(s):</strong>{' '}
           {loadingAuthors ? (
             'Loading authors...'
+          ) : authorFetchError ? (
+            <span style={{ color: 'red' }}>(Could not load author details)</span>
           ) : authors.length > 0 ? (
             authors.map((author, index) => (
               <React.Fragment key={author.id}>
-                <Link to={`/user/${author.id}`}>{author.name}</Link>
+                <Link to={`/authors/${author.id}`}>{author.name}</Link>
                 {index < authors.length - 1 ? ', ' : ''}
               </React.Fragment>
             ))
@@ -133,9 +142,10 @@ function BookDetails({ jwt }) {
         </p>
         <p>
           <strong>Published:</strong>{' '}
-          {book.published
-            ? new Date(book.published.year, book.published.month - 1, book.published.day).toLocaleDateString()
-            : 'Unknown'}
+          {book.published && typeof book.published === 'string' ?
+            new Date(book.published + 'T00:00:00Z').toLocaleDateString(undefined, { timeZone: 'UTC' })
+            : 'Unknown'
+          }
         </p>
         {book.isbns && book.isbns.length > 0 && (
           <p>

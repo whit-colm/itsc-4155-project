@@ -8,6 +8,7 @@ import CreateBook from './pages/CreateBook';
 import BookDetails from './pages/BookDetails';
 import UserProfile from './pages/UserProfile';
 import Books from './pages/Books';
+import AuthorProfile from './pages/AuthorProfile'; // Import the new component
 import GitHubCallback from './pages/GitHubCallback';
 import './App.css';
 import Footer from './components/Footer';
@@ -114,6 +115,7 @@ function App() {
           <Route path="/create-book" element={<CreateBook />} />
           <Route path="/books/:bookId" element={<BookDetails jwt={jwt} />} />
           <Route path="/user/:userId" element={<UserProfile jwt={jwt} />} />
+          <Route path="/authors/:authorId" element={<AuthorProfile jwt={jwt} />} /> {/* Add route for AuthorProfile */}
           <Route path="/books" element={<Books jwt={jwt} />} />
           <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
         </Routes>
