@@ -34,6 +34,7 @@ func (b *bookRepository[S]) Author(ctx context.Context, authorID uuid.UUID) ([]*
 
 // Create implements BookRepositoryManager.
 func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error {
+	const errorCaller string = "create book"
 	tx, err := b.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -41,13 +42,33 @@ func (b *bookRepository[S]) Create(ctx context.Context, book *model.Book) error 
 	defer tx.Rollback(ctx)
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO books (id, title, subtitle, description, published, cover_image, thumbnail_image)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO books (id, title, subtitle, description, published)
+		 VALUES ($1, $2, $3, $4, $5)`,
 		book.ID, book.Title, book.Subtitle, book.Description,
-		book.Published.In(time.UTC), book.CoverImage, book.ThumbImage,
+		book.Published.In(time.UTC),
 	)
 	if err != nil {
-		return fmt.Errorf("create book: %w", err)
+		return fmt.Errorf("%v: %w", errorCaller, err)
+	}
+
+	// Insert cover and thumbnail images if they are set
+	if book.CoverImage != uuid.Nil {
+		_, err = tx.Exec(ctx,
+			`UPDATE books SET cover_image = $1 WHERE id = $2`,
+			book.CoverImage, book.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("%v: %w", errorCaller, err)
+		}
+	}
+	if book.ThumbImage != uuid.Nil {
+		_, err = tx.Exec(ctx,
+			`UPDATE books SET thumbnail_image = $1 WHERE id = $2`,
+			book.ThumbImage, book.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("%v: %w", errorCaller, err)
+		}
 	}
 
 	rows := [][]interface{}{}
