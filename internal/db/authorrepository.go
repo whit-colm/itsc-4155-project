@@ -216,6 +216,7 @@ func (a *authorRepository[S]) Delete(ctx context.Context, id uuid.UUID) error {
 // GetByID implements repository.AuthorManager.
 func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model.Author, error) {
 	const errorCaller string = "author by id"
+
 	var author *model.Author
 	rows, err := a.db.Query(ctx,
 		a.queryString(`a.id = $1`, false),
@@ -234,8 +235,15 @@ func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model
 		if err != nil {
 			return nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
+		fmt.Printf("%#v\n", author)
+	} else {
+		// If there's no next, that means there's either an error or no rows
+		// check if there's an error and if not just return a repository.ErrNotFound
+		if rows.Err() != nil {
+			return nil, fmt.Errorf("%v: %w", errorCaller, rows.Err())
+		}
+		return nil, repository.Err{Code: repository.ErrNotFound, Err: rows.Err()}
 	}
-
 	return author, rows.Err()
 }
 

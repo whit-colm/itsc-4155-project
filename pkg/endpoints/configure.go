@@ -110,6 +110,9 @@ func Configure[S comparable](router *gin.Engine, rp *repository.Repository[S], c
 	api.GET("/auth/github/login", ah.Login)
 	api.GET("/auth/github/callback", wrap(ah.GithubCallback))
 
+	th := athrHandle[S]{rp.Author}
+	api.GET("/authors/:id", th.GetAuthorByID)
+
 	profile := api.Group("/user")
 	profile.Use(AuthorizationJWT())
 	uh = userHandle{rp.User, rp.Blob}

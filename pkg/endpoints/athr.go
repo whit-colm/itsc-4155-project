@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,13 @@ func (ah *athrHandle[S]) GetAuthorByID(c *gin.Context) {
 
 	s, err := ah.repo.GetByID(c.Request.Context(), id)
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			c.JSON(http.StatusNotFound,
+				jsonParsableError{Summary: "Could not find author with ID",
+					Details: err},
+			)
+			return
+		}
 		c.JSON(http.StatusNotFound,
 			jsonParsableError{Summary: "Could not find author with ID",
 				Details: err})
