@@ -1,21 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/BookDetails.css';
 import Comments from './Comments';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 
 function BookDetails({ jwt }) {
-  const { bookId } = useParams(); // Corresponds to 'id' in the API path /api/book/:id
+  const { bookId } = useParams();
   const [book, setBook] = useState(null);
+  const [authors, setAuthors] = useState([]);
   const [coverUrl, setCoverUrl] = useState(null);
   const [error, setError] = useState(null);
+  const [loadingAuthors, setLoadingAuthors] = useState(false);
+
+  const fetchAuthorDetails = async (authorId) => {
+    try {
+      const response = await fetch(`/api/user/${authorId}`, {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      if (!response.ok) {
+        console.error(`Failed to fetch author ${authorId}: ${response.statusText}`);
+        return null;
+      }
+      const authorData = await response.json();
+      return {
+        id: authorData.id,
+        name: authorData.displayName || authorData.username || 'Unknown Author',
+      };
+    } catch (err) {
+      console.error(`Error fetching author ${authorId}:`, err);
+      return null;
+    }
+  };
 
   const fetchBook = async (retries = 3) => {
+    setError(null);
+    setLoadingAuthors(false);
     try {
       const response = await fetch(`/api/books/${bookId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${jwt}`,
+          ...(jwt && { Authorization: `Bearer ${jwt}` }),
         },
       });
 
@@ -27,30 +51,55 @@ function BookDetails({ jwt }) {
       const data = await response.json();
       setBook(data);
 
-      if (data.cover_blob) { // Changed from bref_cover to cover_blob
-        const coverResponse = await fetch(`/api/blob/${data.cover_blob}`, {
-          headers: {
-            Authorization: `Bearer ${jwt}`, // Blob endpoint requires auth
-          },
-        });
-        
-        if (coverResponse.ok) {
-          const coverBlob = await coverResponse.blob();
-          setCoverUrl(URL.createObjectURL(coverBlob));
+      if (data.bref_cover_image) {
+        try {
+          const coverResponse = await fetch(`/api/blob/${data.bref_cover_image}`, {
+            headers: {
+              ...(jwt && { Authorization: `Bearer ${jwt}` }),
+            },
+          });
+          if (coverResponse.ok) {
+            const coverBlob = await coverResponse.blob();
+            setCoverUrl(URL.createObjectURL(coverBlob));
+          } else {
+            console.warn(`Failed to fetch cover image blob: ${coverResponse.statusText}`);
+          }
+        } catch (imgErr) {
+          console.error("Error fetching cover image:", imgErr);
         }
+      }
+
+      if (data.authors && data.authors.length > 0) {
+        setLoadingAuthors(true);
+        const authorPromises = data.authors.map((authorId) => fetchAuthorDetails(authorId));
+        const resolvedAuthors = (await Promise.all(authorPromises)).filter((author) => author !== null);
+        setAuthors(resolvedAuthors);
+        setLoadingAuthors(false);
+      } else {
+        setAuthors([]);
       }
     } catch (err) {
       if (retries > 0) {
         console.warn(`Retrying fetchBook... (${3 - retries + 1})`);
-        setTimeout(() => fetchBook(retries - 1), 2000); // Add retry delay
+        setTimeout(() => fetchBook(retries - 1), 2000);
       } else {
         setError(err.message);
+        setBook(null);
+        setAuthors([]);
+        setCoverUrl(null);
       }
     }
   };
 
   useEffect(() => {
-    fetchBook();
+    if (bookId) {
+      fetchBook();
+    }
+    return () => {
+      if (coverUrl) {
+        URL.revokeObjectURL(coverUrl);
+      }
+    };
   }, [bookId, jwt]);
 
   if (error) {
@@ -58,18 +107,53 @@ function BookDetails({ jwt }) {
   }
 
   if (!book) {
-    return <div className="loading-message">Loading...</div>;
+    return <div className="loading-message">Loading book details...</div>;
   }
 
   return (
     <div className="book-details-container">
       <h1>{book.title}</h1>
+      {book.subtitle && <h2>{book.subtitle}</h2>}
       {coverUrl && <img src={coverUrl} alt={`${book.title} cover`} className="book-cover" />}
-      {/* Wrap details in a div */}
       <div className="book-info">
-        {book.author && <p><strong>Author:</strong> {book.author}</p>} {/* Added check for author */}
-        <p><strong>Published:</strong> {new Date(book.published).toLocaleDateString()}</p>
-        <p><strong>ISBN:</strong> {book.isbn}</p> {/* Simplified ISBN handling */}
+        <p>
+          <strong>Author(s):</strong>{' '}
+          {loadingAuthors ? (
+            'Loading authors...'
+          ) : authors.length > 0 ? (
+            authors.map((author, index) => (
+              <React.Fragment key={author.id}>
+                <Link to={`/user/${author.id}`}>{author.name}</Link>
+                {index < authors.length - 1 ? ', ' : ''}
+              </React.Fragment>
+            ))
+          ) : (
+            'Unknown'
+          )}
+        </p>
+        <p>
+          <strong>Published:</strong>{' '}
+          {book.published
+            ? new Date(book.published.year, book.published.month - 1, book.published.day).toLocaleDateString()
+            : 'Unknown'}
+        </p>
+        {book.isbns && book.isbns.length > 0 && (
+          <p>
+            <strong>ISBN(s):</strong>{' '}
+            {book.isbns.map((isbn, index) => (
+              <span key={index}>
+                {isbn.value} ({isbn.type.toUpperCase()})
+                {index < book.isbns.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          </p>
+        )}
+        {book.description && (
+          <div className="book-description">
+            <strong>Description:</strong>
+            <p>{book.description}</p>
+          </div>
+        )}
       </div>
       <Comments bookId={bookId} jwt={jwt} />
     </div>
