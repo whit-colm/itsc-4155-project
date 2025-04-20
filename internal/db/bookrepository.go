@@ -132,15 +132,15 @@ func (b bookRepository[S]) queryString(clause string, search bool) string {
 		 COALESCE(b.description, ''),
 		 b.published,
 		 COALESCE(
-			 json_agg(a.author_id) FILTER (WHERE a.author_id IS NOT NULL),
-			 '[]'::json
+			 jsonb_agg(DISTINCT a.author_id) FILTER (WHERE a.author_id IS NOT NULL),
+			 '[]'::jsonb
 		 ),
 		 COALESCE(
-			 json_agg(json_build_object(
+			 jsonb_agg(jsonb_build_object(
 				 'value', i.isbn,
 				 'type', i.isbn_type
 			 )) FILTER (WHERE i.isbn IS NOT NULL),
-			 '[]'::json
+			 '[]'::jsonb
 		 ),
 		 b.cover_image,
 		 b.thumbnail_image

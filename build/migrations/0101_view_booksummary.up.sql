@@ -9,19 +9,19 @@ CREATE VIEW v_books_summary AS
         b.published,
         b.thumbnail_image,
         COALESCE(
-            json_agg(json_build_object(
+            jsonb_agg(DISTINCT jsonb_build_object(
                 'id', a.id,
                 'family_name', a.family_name,
                 'given_name', a.given_name
             )) FILTER (WHERE a.id IS NOT NULL),
-            '[]'::json
+            '[]'::jsonb
         ) AS authors,
         COALESCE(
-            json_agg(json_build_object(
+            jsonb_agg(jsonb_build_object(
                 'value', i.isbn,
                 'type', i.isbn_type
             )) FILTER (WHERE i.isbn IS NOT NULL),
-            '[]'::json
+            '[]'::jsonb
         ) AS isbns
     FROM 
         books b
