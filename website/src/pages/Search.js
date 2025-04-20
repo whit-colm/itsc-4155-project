@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import '../styles/Search.css';
 
 // Use the exact apiVersion strings from Go model constants
-const BOOK_SUMMARY_API_VERSION = "book.itsc-4155-group-project.edu.whits.io/v1alpha1";
-const AUTHOR_API_VERSION = "author.itsc-4155-group-project.edu.whits.io/v1alpha1";
-const COMMENT_API_VERSION = "comment.itsc-4155-group-project.edu.whits.io/v1alpha1";
+const BOOK_SUMMARY_API_VERSION = "booksummary.itsc-4155-group-project.edu.whits.io/v1alpha2"; // Updated to v1alpha2
+const AUTHOR_API_VERSION = "author.itsc-4155-group-project.edu.whits.io/v1alpha2";         // Updated to v1alpha2
+const COMMENT_API_VERSION = "comment.itsc-4155-group-project.edu.whits.io/v1alpha1"; // Remains v1alpha1
 
 function Search() {
   const [query, setQuery] = useState('');
@@ -167,7 +167,7 @@ function Search() {
 
           // Use apiVersion to determine type and render accordingly
           switch (result.apiVersion) {
-            case BOOK_SUMMARY_API_VERSION:
+            case BOOK_SUMMARY_API_VERSION: // Now correctly matches v1alpha2
               // Ensure result.id exists before using it
               if (result.id) {
                   key = result.id;
@@ -182,7 +182,7 @@ function Search() {
               details = result.authors?.map(a => `${a.givenname || ''} ${a.familyname || ''}`.trim()).join(', ') || 'Unknown Author';
               details = `by ${details}`;
               break;
-            case AUTHOR_API_VERSION:
+            case AUTHOR_API_VERSION: // Now correctly matches v1alpha2
               // Ensure result.id exists before using it
               if (result.id) {
                   key = result.id;
@@ -196,7 +196,7 @@ function Search() {
               title = `${result.givenname || ''} ${result.familyname || ''}`.trim() || 'Unknown Author';
               details = `Author`;
               break;
-            case COMMENT_API_VERSION:
+            case COMMENT_API_VERSION: // Still correctly matches v1alpha1
                // Ensure result.id and result.bookID exist before using them
                if (result.id && result.bookID) {
                    key = result.id;
