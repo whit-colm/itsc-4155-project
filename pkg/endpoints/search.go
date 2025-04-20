@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,6 +14,14 @@ import (
 
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
+
+// Is not strictly necessary for security reasons, but prevents queries
+// from randomly failing due to unexpected characters.
+var querySanitizer *regexp.Regexp
+
+func init() {
+	querySanitizer = regexp.MustCompile(`([\\\'\"\;\(\)\[\]\{\}\^\%\x60])`)
+}
 
 type searchHandle[S comparable] struct {
 	book repository.BookManager[S]
@@ -41,7 +50,7 @@ func (h searchHandle[S]) Search(c *gin.Context) (int, string, error) {
 			"Your query must not be empty",
 			nil
 	} else {
-		query = q
+		query = querySanitizer.ReplaceAllString(q, "\\$1")
 	}
 	if r, err := strconv.Atoi(c.Query("r")); err != nil {
 		limit = 25

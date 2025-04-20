@@ -272,7 +272,7 @@ func (b *bookRepository[S]) Search(ctx context.Context, offset int, limit int, q
 			 v.isbns
 		 FROM books b
 		 LEFT JOIN v_books_summary v ON v.id = b.id
-	 	 WHERE b.title @@@ $1 OR b.subtitle @@@ $1 OR b.description @@@ $1
+		 WHERE b.title @@@ $1 OR b.subtitle @@@ $1 OR b.description @@@ $1
 		 ORDER BY paradedb.score(b.id) DESC, v.title DESC
 		 LIMIT $2 OFFSET $3`,
 		qStr,
