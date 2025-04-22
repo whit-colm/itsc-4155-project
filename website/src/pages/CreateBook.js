@@ -149,7 +149,7 @@ function CreateBook() {
           type="text"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
-          placeholder="Author Name (Not sent - requires Author ID)" // Clarify placeholder
+          placeholder="Author Name" // Clarify placeholder
           disabled={isSubmitting}
         />
 
