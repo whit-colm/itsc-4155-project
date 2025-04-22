@@ -7,7 +7,6 @@ import Profile from './pages/Profile';
 import CreateBook from './pages/CreateBook';
 import BookDetails from './pages/BookDetails';
 import UserProfile from './pages/UserProfile';
-import Books from './pages/Books';
 import AuthorProfile from './pages/AuthorProfile'; // Import the new component
 import GitHubCallback from './pages/GitHubCallback';
 import './App.css';
@@ -81,9 +80,7 @@ function App() {
               <li>
                 <Link to="/search">Search</Link>
               </li>
-              <li>
-                <Link to="/books">Books</Link>
-              </li>
+              
               {!jwt && (
                 <li>
                   <Link to="/login">Login</Link>
@@ -116,7 +113,6 @@ function App() {
           <Route path="/books/:bookId" element={<BookDetails jwt={jwt} />} />
           <Route path="/user/:userId" element={<UserProfile jwt={jwt} />} />
           <Route path="/authors/:authorId" element={<AuthorProfile jwt={jwt} />} /> {/* Add route for AuthorProfile */}
-          <Route path="/books" element={<Books jwt={jwt} />} />
           <Route path="/auth/github/callback" element={<GitHubCallback setJwt={setJwt} />} />
         </Routes>
         <Footer />

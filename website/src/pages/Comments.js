@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Import useMemo
 import ReactMarkdown from 'react-markdown';
 import { v4 as uuidv4 } from 'uuid';
+import { jwtDecode } from 'jwt-decode'; // Correct: Use named import
 import '../styles/Comments.css';
 
 // Function to get JWT from cookie
@@ -8,6 +9,19 @@ const getJwt = () => document.cookie
     .split('; ')
     .find((row) => row.startsWith('jwt='))
     ?.split('=')[1];
+
+// Function to get user ID from JWT
+const getCurrentUserId = (token) => {
+    if (!token) return null;
+    try {
+        const decoded = jwtDecode(token);
+        // Assuming the user ID is stored in the 'sub' claim (standard)
+        return decoded?.sub || null;
+    } catch (error) {
+        console.error("Failed to decode JWT:", error);
+        return null;
+    }
+};
 
 function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
   const [comments, setComments] = useState([]);
@@ -17,8 +31,11 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pendingCommentId, setPendingCommentId] = useState(null); // Track pending optimistic comment
-  const [userVoteMap, setUserVoteMap] = useState({}); // Store user votes separately
-  const [totalVoteMap, setTotalVoteMap] = useState({}); // Store total votes separately
+  const [userVoteMap, setUserVoteMap] = useState({}); // Store user votes separately: map[commentId]int8 (1, -1, 0)
+  const [totalVoteMap, setTotalVoteMap] = useState({}); // Store total votes separately: map[commentId]int
+
+  // Get the current user ID using useMemo to avoid recalculating on every render
+  const currentUserId = useMemo(() => getCurrentUserId(getJwt() || propJwt), [propJwt]);
 
   // Fetch vote status for multiple comments using the batch endpoint
   const fetchVoteStatuses = async () => {
@@ -26,13 +43,12 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
       if (!token || !bookId) return; // Need token and bookId
 
       try {
-          // Call the batch endpoint for the book
+          // Use GET /api/books/:id/reviews/votes endpoint
           const response = await fetch(`/api/books/${bookId}/reviews/votes`, {
               headers: { Authorization: `Bearer ${token}` }
           });
 
           if (!response.ok) {
-              // Handle cases like 401 Unauthorized or other errors
               if (response.status === 401) {
                   console.warn("Unauthorized to fetch vote statuses.");
                   setUserVoteMap({}); // Clear votes if unauthorized
@@ -42,16 +58,13 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
               throw new Error(errorData.summary || `Failed vote status fetch for book ${bookId}`);
           }
 
-          // Backend returns map[uuid.UUID]int8 (JSON object where keys are comment IDs)
+          // Backend returns map[uuid.UUID]int8
           const voteMapResponse = await response.json();
 
-          // Ensure the response is an object
           if (typeof voteMapResponse === 'object' && voteMapResponse !== null) {
-              // Convert vote values (which might be int8) to numbers for JS consistency if needed,
-              // though direct assignment usually works.
               const processedVoteMap = {};
               for (const commentId in voteMapResponse) {
-                  processedVoteMap[commentId] = Number(voteMapResponse[commentId]);
+                  processedVoteMap[commentId] = Number(voteMapResponse[commentId]); // Ensure it's a number
               }
               setUserVoteMap(processedVoteMap);
           } else {
@@ -61,8 +74,6 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
 
       } catch (error) {
           console.error('Error fetching batch vote statuses:', error);
-          // Optionally set a non-blocking error message
-          // setError("Could not fetch vote statuses.");
           setUserVoteMap({}); // Clear votes on error
       }
   };
@@ -72,9 +83,10 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
     const fetchCommentsAndVotes = async () => {
       setLoading(true);
       setError(null);
-      const token = getJwt() || propJwt; // Use token from cookie or prop
+      const token = getJwt() || propJwt;
 
       try {
+        // Use GET /api/books/:id/reviews
         const response = await fetch(`/api/books/${bookId}/reviews`, {
           headers: { ...(token && { Authorization: `Bearer ${token}` }) }
         });
@@ -84,23 +96,31 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
           throw new Error(errorData.summary || `Failed to fetch comments: ${response.statusText}`);
         }
 
+        // Response is []model.Comment
         let data = await response.json();
         data = Array.isArray(data) ? data : [];
 
-        setComments(data); // Set the raw comment data
+        // Process data to ensure 'date' field exists if backend sends 'CreatedAt' or similar
+        const processedData = data.map(comment => ({
+            ...comment,
+            // Use 'date' from model.Comment, fallback if needed (though backend should send 'date')
+            date: comment.date || comment.CreatedAt || new Date().toISOString()
+        }));
 
-        // Initialize total votes map
+        setComments(processedData);
+
+        // Initialize total votes map using 'votes' field from model.Comment
         const initialTotalVotes = {};
-        data.forEach(comment => {
-            initialTotalVotes[comment.ID] = comment.Votes || 0;
+        processedData.forEach(comment => {
+            initialTotalVotes[comment.id] = comment.votes || 0; // Use lowercase 'id' and 'votes'
         });
         setTotalVoteMap(initialTotalVotes);
 
-        // Fetch vote status for all comments using the batch endpoint if logged in
-        if (token && data.length > 0) {
-          await fetchVoteStatuses(); // Call the updated batch fetch function
+        // Fetch vote statuses if logged in
+        if (token && processedData.length > 0) {
+          await fetchVoteStatuses();
         } else {
-          setUserVoteMap({}); // Clear votes if not logged in
+          setUserVoteMap({});
         }
 
       } catch (err) {
@@ -117,7 +137,7 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
         fetchCommentsAndVotes();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, propJwt]); // Rerun if bookId or jwt changes
+  }, [bookId, propJwt]);
 
   const handleAddComment = async () => {
     if (!newComment.trim()) {
@@ -131,31 +151,32 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
         return;
     }
 
-    const tempId = uuidv4(); // Temporary ID for optimistic update
-    // Optimistic comment structure matching Go model as much as possible
+    const tempId = uuidv4();
+    // Optimistic comment structure matching model.Comment
     const optimisticComment = {
-      ID: tempId, // Use ID
-      Body: newComment, // Use Body
-      Poster: { DisplayName: 'You' }, // Placeholder user info - Go model uses CommentUser { ID, DisplayName, Pronouns, Username, Avatar }
-      CreatedAt: new Date().toISOString(), // Use CreatedAt
-      // Votes handled separately
-      pending: true // Mark as pending
+      id: tempId, // Use lowercase 'id'
+      body: newComment, // Use lowercase 'body'
+      poster: { name: 'You', id: currentUserId }, // Use 'poster', 'name', 'id' (matching CommentUser JSON tags)
+      date: new Date().toISOString(), // Use lowercase 'date'
+      votes: 0, // Use lowercase 'votes'
+      pending: true
     };
 
     setComments(prev => [...prev, optimisticComment]);
-    setUserVoteMap(prev => ({ ...prev, [tempId]: 0 })); // Optimistic vote state
-    setTotalVoteMap(prev => ({ ...prev, [tempId]: 0 })); // Optimistic total votes
+    setUserVoteMap(prev => ({ ...prev, [tempId]: 0 })); // User hasn't voted yet
+    setTotalVoteMap(prev => ({ ...prev, [tempId]: 1 })); // Poster automatically upvotes on create (based on db repo)
     setPendingCommentId(tempId);
     setNewComment('');
 
     try {
-      const response = await fetch(`/api/books/${bookId}/reviews`, { // POST to create comment
+      // Use POST /api/books/:id/reviews
+      const response = await fetch(`/api/books/${bookId}/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ Body: newComment }) // Send Body matching Go model
+        body: JSON.stringify({ Body: newComment }) // Backend expects uppercase 'Body' in request JSON
       });
 
       if (!response.ok) {
@@ -163,26 +184,34 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
         throw new Error(errorData.summary || 'Failed to add comment');
       }
 
-      const newCommentData = await response.json(); // Get the actual comment data from backend
+      // Response is model.Comment
+      const newCommentData = await response.json();
+      // Ensure the received data also uses 'date' field for consistency
+      const processedNewComment = {
+          ...newCommentData,
+          date: newCommentData.date || newCommentData.CreatedAt || new Date().toISOString(), // Use 'date' field
+          pending: false
+      };
+
       // Replace optimistic comment with real data
       setComments(prev => prev.map(c =>
-          c.ID === tempId ? { ...newCommentData, pending: false } : c
+          c.id === tempId ? processedNewComment : c // Match lowercase 'id'
       ));
       // Update vote maps with actual ID and initial votes
       setUserVoteMap(prev => {
-          const { [tempId]: _, ...rest } = prev; // Remove temp ID entry
-          // Set initial vote for the new comment to 0 (as user hasn't explicitly voted yet via UI)
-          return { ...rest, [newCommentData.ID]: 0 };
+          const { [tempId]: _, ...rest } = prev;
+          // User's initial vote is 1 because they created it (based on db repo)
+          return { ...rest, [processedNewComment.id]: 1 };
       });
       setTotalVoteMap(prev => {
-          const { [tempId]: _, ...rest } = prev; // Remove temp ID entry
-          return { ...rest, [newCommentData.ID]: newCommentData.Votes || 0 };
+          const { [tempId]: _, ...rest } = prev;
+          // Use 'votes' from the response
+          return { ...rest, [processedNewComment.id]: processedNewComment.votes || 1 };
       });
 
     } catch (err) {
       setError(err.message);
-      // Remove optimistic comment and its votes on failure
-      setComments(prev => prev.filter(c => c.ID !== tempId));
+      setComments(prev => prev.filter(c => c.id !== tempId));
       setUserVoteMap(prev => {
           const { [tempId]: _, ...rest } = prev;
           return rest;
@@ -192,7 +221,7 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
            return rest;
        });
     } finally {
-      setPendingCommentId(null); // Clear pending state
+      setPendingCommentId(null);
     }
   };
 
@@ -202,7 +231,7 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
     const originalTotalVotes = { ...totalVoteMap };
 
     // Optimistically remove
-    setComments(prev => prev.filter(c => c.ID !== commentId));
+    setComments(prev => prev.filter(c => c.id !== commentId));
     setUserVoteMap(prev => {
         const { [commentId]: _, ...rest } = prev;
         return rest;
@@ -222,6 +251,7 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
     }
 
     try {
+      // Use DELETE /api/comments/:id
       const response = await fetch(`/api/comments/${commentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -245,8 +275,8 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
   };
 
   const handleEditComment = (comment) => {
-    setEditingComment(comment.ID); // Use ID
-    setEditedText(comment.Body); // Use Body
+    setEditingComment(comment.id); // Use lowercase 'id'
+    setEditedText(comment.body); // Use lowercase 'body'
     setError(null);
   };
 
@@ -263,21 +293,21 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
     }
 
     const originalComments = [...comments];
-    // Optimistically update
+    // Optimistically update using lowercase 'id' and 'body'
     setComments(prev => prev.map(c =>
-      c.ID === commentId ? { ...c, Body: editedText } : c // Use ID and Body
+      c.id === commentId ? { ...c, body: editedText } : c
     ));
-    setEditingComment(null); // Exit editing mode
+    setEditingComment(null);
 
     try {
+      // Use PATCH /api/comments/:id
       const response = await fetch(`/api/comments/${commentId}`, {
-        method: 'PATCH', // Use PATCH for update
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        // Send only the updated field(s) matching Go model
-        body: JSON.stringify({ Body: editedText })
+        body: JSON.stringify({ Body: editedText }) // Backend expects uppercase 'Body'
       });
 
       if (!response.ok) {
@@ -287,9 +317,15 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
         const errorData = await response.json();
         throw new Error(errorData.summary || 'Failed to update comment');
       }
-      // Optionally update comment data from response if backend returns it
+      // Response is updated model.Comment
       const updatedCommentData = await response.json();
-      setComments(prev => prev.map(c => c.ID === commentId ? updatedCommentData : c));
+      // Ensure date consistency
+      const processedUpdatedComment = {
+          ...updatedCommentData,
+          date: updatedCommentData.date || updatedCommentData.CreatedAt || new Date().toISOString(),
+      };
+      // Update state with confirmed data
+      setComments(prev => prev.map(c => c.id === commentId ? processedUpdatedComment : c));
 
     } catch (err) {
       setError(err.message);
@@ -328,17 +364,13 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
       setUserVoteMap(prev => ({ ...prev, [commentId]: optimisticVote }));
       setTotalVoteMap(prev => ({ ...prev, [commentId]: optimisticTotal }));
 
-
       try {
-          // Call the Vote endpoint (POST)
-          // Go endpoint expects vote value in query param for POST /api/comments/{id}/vote
+          // Use POST /api/comments/:id/vote?vote=<value>
           const response = await fetch(`/api/comments/${commentId}/vote?vote=${optimisticVote}`, {
               method: 'POST',
               headers: {
-                  // 'Content-Type': 'application/json', // May not be needed if no body
                   Authorization: `Bearer ${token}`
               },
-              // No body needed if vote is in query param
           });
 
           if (!response.ok) {
@@ -346,13 +378,13 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
               throw new Error(errorData.summary || 'Failed to process vote');
           }
 
-          // Vote endpoint returns map[uuid.UUID]int with updated total votes
+          // Response is map[uuid.UUID]int containing the new total vote count
           const voteResponseMap = await response.json();
-          const finalTotalVotes = voteResponseMap[commentId];
+          const finalTotalVotes = voteResponseMap[commentId]; // Get total for the specific comment
 
           // Update total votes with the confirmed value from the backend
           setTotalVoteMap(prev => ({ ...prev, [commentId]: finalTotalVotes }));
-          // User vote already optimistically set, assume it's correct unless error
+          // User vote already optimistically set
 
       } catch (err) {
           setError(err.message);
@@ -361,7 +393,6 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
           setTotalVoteMap(prev => ({ ...prev, [commentId]: originalTotalVote }));
       }
   };
-
 
   if (loading) return <div className="loading-message">Loading comments...</div>;
 
@@ -387,20 +418,17 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
       )}
       {!(getJwt() || propJwt) && <p>Please log in to post comments.</p>}
 
-
       <ul>
         {comments.map(comment => {
-          const userVote = userVoteMap[comment.ID];
-          const totalVotes = totalVoteMap[comment.ID] ?? 0; // Use map or default to 0
+          const userVote = userVoteMap[comment.id]; // Use lowercase 'id'
+          const totalVotes = totalVoteMap[comment.id] ?? 0; // Use lowercase 'id'
           const isLoggedIn = !!(getJwt() || propJwt);
-          // TODO: Get current user ID to compare with comment.Poster.ID for edit/delete permissions
-          // const currentUserId = getCurrentUserId(); // Function to get current user ID from JWT
-          // const canModify = isLoggedIn && currentUserId === comment.Poster?.ID;
+          // Check if the current user is the poster using lowercase 'id'
+          const canModify = isLoggedIn && currentUserId === comment.poster?.id;
 
           return (
-              // Use ID from Go model
-              <li key={comment.ID} id={`comment-${comment.ID}`} className={`comment-item ${comment.pending ? 'pending-comment' : ''}`}>
-                {editingComment === comment.ID ? (
+              <li key={comment.id} id={`comment-${comment.id}`} className={`comment-item ${comment.pending ? 'pending-comment' : ''}`}>
+                {editingComment === comment.id ? ( // Use lowercase 'id'
                   <div className="edit-comment-section">
                     <textarea
                       value={editedText}
@@ -408,51 +436,49 @@ function Comments({ bookId, jwt: propJwt }) { // Use propJwt to avoid conflict
                       rows="4"
                     />
                     <div className="edit-actions">
-                      <button onClick={() => handleSaveEdit(comment.ID)} disabled={!editedText.trim()}>Save</button>
+                      <button onClick={() => handleSaveEdit(comment.id)} disabled={!editedText.trim()}>Save</button>
                       <button onClick={() => setEditingComment(null)} className="cancel-button">Cancel</button>
                     </div>
                   </div>
                 ) : (
                   <div>
                     <div className="comment-meta">
-                      {/* Use Poster.DisplayName from Go model */}
-                      <span className="comment-author">{comment.Poster?.DisplayName || 'Anonymous'}</span>
-                      {/* Use CreatedAt from Go model */}
-                      <span className="comment-date">{comment.CreatedAt ? new Date(comment.CreatedAt).toLocaleString() : ''}</span>
+                      <span className="comment-author">{comment.poster?.name || 'Anonymous'}</span>
+                      <span className="comment-date">{comment.date ? new Date(comment.date).toLocaleString() : ''}</span>
+                      {comment.edited && <span className="comment-edited">(edited {new Date(comment.edited).toLocaleString()})</span>}
                     </div>
                     <div className="comment-body">
-                      {/* Use Body from Go model */}
-                      <ReactMarkdown>{comment.Body}</ReactMarkdown>
+                      <ReactMarkdown>{comment.body}</ReactMarkdown>
                     </div>
-                    {/* Show actions only if logged in */}
                     {isLoggedIn && (
                         <div className="comment-actions">
-                          {/* Add check if user is the poster for edit/delete */}
-                          {/* Example: {canModify && (...)} */}
-                          <button onClick={() => handleEditComment(comment)} className="action-button">Edit</button>
-                          <button onClick={() => handleDeleteComment(comment.ID)} className="action-button delete-button">Delete</button>
+                          {canModify && (
+                              <>
+                                <button onClick={() => handleEditComment(comment)} className="action-button">Edit</button>
+                                <button onClick={() => handleDeleteComment(comment.id)} className="action-button delete-button">Delete</button>
+                              </>
+                          )}
                           <div className="voting">
                             <button
-                              onClick={() => handleVote(comment.ID, 1)}
+                              onClick={() => handleVote(comment.id, 1)} // Use lowercase 'id'
                               className={`vote-button upvote ${userVote === 1 ? 'active' : ''}`}
                               aria-label="Upvote"
-                              disabled={comment.pending || typeof userVote === 'undefined'} // Disable if pending or vote status not loaded
+                              disabled={comment.pending || typeof userVote === 'undefined'}
                             >
                               ↑
                             </button>
                             <span className="vote-count">{totalVotes}</span>
                             <button
-                              onClick={() => handleVote(comment.ID, -1)}
+                              onClick={() => handleVote(comment.id, -1)} // Use lowercase 'id'
                               className={`vote-button downvote ${userVote === -1 ? 'active' : ''}`}
                               aria-label="Downvote"
-                              disabled={comment.pending || typeof userVote === 'undefined'} // Disable if pending or vote status not loaded
+                              disabled={comment.pending || typeof userVote === 'undefined'}
                             >
                               ↓
                             </button>
                           </div>
                         </div>
                     )}
-                     {/* Show only voting count if not logged in */}
                      {!isLoggedIn && (
                          <div className="comment-actions">
                              <div className="voting">

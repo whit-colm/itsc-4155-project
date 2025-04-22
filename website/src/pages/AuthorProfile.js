@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-// import '../styles/AuthorProfile.css'; // Consider creating a CSS file for styling
+import '../styles/AuthorProfile.css'; // Uncomment this line
 
 function AuthorProfile({ jwt }) {
   const { authorId } = useParams();
@@ -54,7 +54,7 @@ function AuthorProfile({ jwt }) {
   const fullName = `${author.given_name || ''} ${author.family_name || ''}`.trim();
 
   return (
-    <div className="author-profile-container" style={{ padding: '20px', maxWidth: '800px', margin: '20px auto' }}>
+    <div className="author-profile-container">
       <h1>{fullName || 'Author Profile'}</h1>
       {/* Display other author details */}
       {author.bio && (

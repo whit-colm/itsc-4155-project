@@ -4,14 +4,14 @@ import '../styles/CreateBook.css';
 
 function CreateBook() {
   const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
-  const [published, setPublished] = useState('');
+  const [author, setAuthor] = useState(''); // Keep for UI, but won't be sent directly
+  const [published, setPublished] = useState(''); // Expects YYYY-MM-DD
   const [isbns, setIsbns] = useState([{ type: 'isbn10', value: '' }]);
   const [errors, setErrors] = useState({});
-  const [image, setImage] = useState(null); // State for the book image
-  const [isSubmitting, setIsSubmitting] = useState(false); // Add submitting state
-  const [submitError, setSubmitError] = useState(''); // State for submission errors
-  const navigate = useNavigate(); // Initialize useNavigate
+  const [image, setImage] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const navigate = useNavigate();
 
   const isbn10Regex = /^(?:\d[\ |-]?){9}[\d|X]$/;
   const isbn13Regex = /^(?:\d[\ |-]?){13}$/;
@@ -60,27 +60,31 @@ function CreateBook() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError(''); // Clear previous submission errors
+    setSubmitError('');
     if (!validateIsbns()) {
       return;
     }
 
-    setIsSubmitting(true); // Set submitting state to true
+    setIsSubmitting(true);
 
-    // Ensure published date is in YYYY-MM-DD format or adjust if backend needs ISO
-    const formattedPublishedDate = published; // Assuming backend accepts YYYY-MM-DD
-
-    // Prepare book data matching Go model structure
-    const newBook = {
+    // Prepare book data matching Go model.Book structure
+    const newBookPayload = {
       title,
-      published: formattedPublishedDate,
-      isbns: isbns.map(isbn => ({ type: isbn.type, value: isbn.value.replace(/[\s-]/g, '') })) // Clean ISBN values
+      published: published, // Already in YYYY-MM-DD format from input type="date"
+      isbns: isbns
+        .filter(isbn => isbn.value.trim() !== '') // Filter out empty ISBNs
+        .map(isbn => ({
+            type: isbn.type,
+            // Clean ISBN value (remove hyphens and spaces) before sending
+            value: isbn.value.replace(/[\s-]/g, '')
+        })),
     };
 
+    // --- JWT Retrieval ---
     const jwt = document.cookie
       .split('; ')
       .find((row) => row.startsWith('jwt='))
-      ?.split('=')[1]; // Retrieve JWT from cookie
+      ?.split('=')[1];
 
     if (!jwt) {
         setSubmitError('Authentication error. Please log in.');
@@ -88,6 +92,7 @@ function CreateBook() {
         return;
     }
 
+    // --- Request Configuration ---
     let requestOptions = {
         method: 'POST',
         headers: {
@@ -96,27 +101,23 @@ function CreateBook() {
     };
 
     if (image) {
-        // Use FormData when image is present
-        const formData = new FormData();
-        formData.append('book', JSON.stringify(newBook));
-        formData.append('image', image);
-        requestOptions.body = formData;
-        console.warn("Attempting image upload with FormData. Backend might not support this.");
-        setSubmitError("Image upload is not currently supported by the backend."); // Inform user proactively
-    } else {
-        // Use application/json when no image is present
+        console.warn("Attempting image upload, but backend /api/books/new expects JSON.");
+        setSubmitError("Image upload is not supported by this endpoint. Book will be created without cover.");
         requestOptions.headers['Content-Type'] = 'application/json';
-        requestOptions.body = JSON.stringify(newBook);
+        requestOptions.body = JSON.stringify(newBookPayload);
+    } else {
+        requestOptions.headers['Content-Type'] = 'application/json';
+        requestOptions.body = JSON.stringify(newBookPayload);
     }
 
+    // --- API Call ---
     try {
-      // Use the configured requestOptions
       const response = await fetch('/api/books/new', requestOptions);
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json(); // Expects model.Book response
         console.log('Book created:', data);
-        navigate(`/books/${data.id}`); // Use 'id' from the response
+        navigate(`/books/${data.id}`);
       } else {
         const errorData = await response.json();
         console.error('Failed to create book:', errorData.summary || response.statusText, errorData.details);
@@ -126,14 +127,13 @@ function CreateBook() {
       console.error('Unexpected error:', error);
       setSubmitError('An unexpected error occurred. Please try again.');
     } finally {
-      setIsSubmitting(false); // Reset submitting state regardless of outcome
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="create-book-container">
       <h1>Create Book</h1>
-      {/* Display submission error */}
       {submitError && <p className="error submit-error">{submitError}</p>}
       <form onSubmit={handleSubmit}>
         <input
@@ -142,32 +142,33 @@ function CreateBook() {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title"
           required
-          disabled={isSubmitting} // Disable when submitting
+          disabled={isSubmitting}
         />
+
         <input
           type="text"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
-          placeholder="Author"
-          required
-          disabled={isSubmitting} // Disable when submitting
+          placeholder="Author Name (Not sent - requires Author ID)" // Clarify placeholder
+          disabled={isSubmitting}
         />
+
         <input
           type="date"
           value={published}
           onChange={(e) => setPublished(e.target.value)}
           placeholder="Published Date"
           required
-          disabled={isSubmitting} // Disable when submitting
+          disabled={isSubmitting}
         />
 
-        <label className="isbn-label">ISBNs:</label> {/* Add label for clarity */}
+        <label className="isbn-label">ISBNs:</label>
         {isbns.map((isbn, index) => (
           <div key={index} className="isbn-input">
             <select
               value={isbn.type}
               onChange={(e) => handleIsbnChange(index, 'type', e.target.value)}
-              disabled // Keep type selection disabled after adding
+              disabled
             >
               <option value="isbn10">ISBN-10</option>
               <option value="isbn13">ISBN-13</option>
@@ -177,15 +178,15 @@ function CreateBook() {
               value={isbn.value}
               onChange={(e) => handleIsbnChange(index, 'value', e.target.value)}
               placeholder={`Enter ${isbn.type.toUpperCase()}`}
-              required
-              disabled={isSubmitting} // Disable when submitting
+              required={isbn.value.trim() !== '' || isbns.length === 1}
+              disabled={isSubmitting}
             />
             {isbns.length > 1 && (
                  <button
                     type="button"
                     className="remove-isbn-button"
                     onClick={() => handleRemoveIsbn(index)}
-                    disabled={isSubmitting} // Disable when submitting
+                    disabled={isSubmitting}
                  >
                     X
                  </button>
@@ -193,13 +194,13 @@ function CreateBook() {
             {errors[index] && <span className="error isbn-error">{errors[index]}</span>}
           </div>
         ))}
-        <div className="isbn-buttons"> {/* Group add buttons */}
+        <div className="isbn-buttons">
             {!isbns.some(isbn => isbn.type === 'isbn10') && (
               <button
                 type="button"
                 className="add-isbn-button"
                 onClick={() => handleAddIsbn('isbn10')}
-                disabled={isSubmitting} // Disable when submitting
+                disabled={isSubmitting}
               >
                 Add ISBN-10
               </button>
@@ -209,21 +210,21 @@ function CreateBook() {
                 type="button"
                 className="add-isbn-button"
                 onClick={() => handleAddIsbn('isbn13')}
-                disabled={isSubmitting} // Disable when submitting
+                disabled={isSubmitting}
               >
                 Add ISBN-13
               </button>
             )}
         </div>
 
-        <label htmlFor="image-upload-input" className="image-upload-label">Book Cover (Optional):</label>
+        <label htmlFor="image-upload-input" className="image-upload-label">Book Cover (Optional - Upload Not Supported):</label>
         <input
           id="image-upload-input"
           type="file"
           accept="image/*"
           onChange={handleImageChange}
           className="image-upload"
-          disabled={isSubmitting} // Disable when submitting
+          disabled={isSubmitting}
         />
         {image && <span className="image-filename">Selected: {image.name}</span>}
 
