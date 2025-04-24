@@ -143,7 +143,7 @@ func (a *authorRepository[S]) Create(ctx context.Context, author *model.Author) 
 
 	for _, extID := range author.ExtIDs {
 		_, err = tx.Exec(ctx,
-			`INSERT INTO author_identifiers (author_id, type, identifier)'
+			`INSERT INTO author_identifiers (author_id, type, identifier)
 			 VALUES ($1, $2, $3)
 			 ON CONFLICT (author_id, type, identifier) DO NOTHING`,
 			author.ID, extID.Type, extID.ID,
