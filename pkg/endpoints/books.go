@@ -12,26 +12,11 @@ import (
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
-type bookHandle struct {
-	repo repository.BookManager
+type bookHandle[S comparable] struct {
+	repo repository.BookManager[S]
 }
 
-var bh bookHandle
-
-func (bh *bookHandle) GetBooks(c *gin.Context) {
-	s, err := bh.repo.Search(c.Request.Context())
-	if err != nil {
-		// TODO: once actually implementing search, change to a
-		// http.StatusBadRequest
-		c.JSON(http.StatusInternalServerError,
-			jsonParsableError{Summary: "failed to retrieve books",
-				Details: err})
-		return
-	}
-	c.JSON(http.StatusOK, s)
-}
-
-func (bh *bookHandle) GetBookByID(c *gin.Context) {
+func (bh *bookHandle[S]) GetBookByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
@@ -52,7 +37,7 @@ func (bh *bookHandle) GetBookByID(c *gin.Context) {
 }
 
 // This is a bit hacky, but it's just a redirect to the UUID page.
-func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
+func (bh *bookHandle[S]) GetBookByISBN(c *gin.Context) {
 	isbn, err := model.NewISBN(c.Param("isbn"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest,
@@ -73,7 +58,7 @@ func (bh *bookHandle) GetBookByISBN(c *gin.Context) {
 	c.Redirect(http.StatusFound, fmt.Sprintf("/api/books/%s", book.ID))
 }
 
-func (bh *bookHandle) AddBook(c *gin.Context) {
+func (bh *bookHandle[S]) AddBook(c *gin.Context) {
 	jsonData, err := c.GetRawData()
 	if err != nil {
 		c.JSON(http.StatusBadRequest,

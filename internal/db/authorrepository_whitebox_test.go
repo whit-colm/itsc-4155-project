@@ -9,19 +9,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/whit-colm/itsc-4155-project/internal/testhelper"
+	"github.com/whit-colm/itsc-4155-project/internal/testhelper/dummyvalues"
 	"github.com/whit-colm/itsc-4155-project/pkg/repository"
 )
 
 /** Implement DummyPopulator **/
 
 // Useful to check that a type implements an interface
-var _ repository.DummyPopulator = (*authorRepository)(nil)
+var _ repository.DummyPopulator = (*authorRepository[string])(nil)
 
-func (a *authorRepository) PopulateDummyValues(ctx context.Context) error {
+func (a *authorRepository[S]) PopulateDummyValues(ctx context.Context) error {
 	batch := &pgx.Batch{}
 
-	for _, author := range testhelper.ExampleAuthors {
+	for _, author := range dummyvalues.ExampleAuthors {
 		batch.Queue(`INSERT INTO authors (id, givenname, familyname)
 					 VALUES ($1, $2, $3)`,
 			author.ID, author.GivenName, author.FamilyName)
@@ -33,9 +33,9 @@ func (a *authorRepository) PopulateDummyValues(ctx context.Context) error {
 	return nil
 }
 
-func (a *authorRepository) IsPrepopulated(ctx context.Context) bool {
+func (a *authorRepository[S]) IsPrepopulated(ctx context.Context) bool {
 	var ids uuid.UUIDs
-	for _, v := range testhelper.ExampleAuthors {
+	for _, v := range dummyvalues.ExampleAuthors {
 		ids = append(ids, v.ID)
 	}
 	var count int
@@ -51,7 +51,7 @@ func (a *authorRepository) IsPrepopulated(ctx context.Context) bool {
 	return count == len(ids)
 }
 
-func (a *authorRepository) CleanDummyValues(ctx context.Context) error {
+func (a *authorRepository[S]) CleanDummyValues(ctx context.Context) error {
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -64,7 +64,7 @@ func (a *authorRepository) CleanDummyValues(ctx context.Context) error {
 	return tx.Commit(ctx)
 }
 
-func (a *authorRepository) SetDatastore(ctx context.Context, ds any) error {
+func (a *authorRepository[S]) SetDatastore(ctx context.Context, ds any) error {
 	if db, ok := ds.(*pgxpool.Pool); !ok {
 		return fmt.Errorf("unable to cast ds into pgxpool Pool.")
 	} else {

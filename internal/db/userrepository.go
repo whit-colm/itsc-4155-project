@@ -64,9 +64,13 @@ func (u *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	defer tx.Rollback(ctx)
 
 	var avatarID uuid.UUID
-	tx.QueryRow(ctx,
-		`SELETCT avatar FROM users u
-		 WHERE u.id = $1`,
+	// we use u.db rather than tx.db because if this fails
+ 	// we don't want to kill the transaction
+ 	// we do not care if this fails
+ 	u.db.QueryRow(ctx,
+		`SELECT avatar FROM users
+		 WHERE id = $1`,
+		id,
 	).Scan(&avatarID)
 
 	if _, err := tx.Exec(ctx,
@@ -154,9 +158,9 @@ func (u *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 	return u.getByColumn(ctx, "u.id", id.String())
 }
 
-// GetByUserHandle implements repository.UserManager.
-func (u *userRepository) GetByUserHandle(ctx context.Context, username string) (*model.User, error) {
-	return u.getByColumn(ctx, "(u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0'))", username)
+// GetByUsername implements repository.UserManager.
+func (u *userRepository) GetByUsername(ctx context.Context, username model.Username) (*model.User, error) {
+	return u.getByColumn(ctx, "(u.handle || '#' || lpad(u.discriminator::TEXT, 4, '0'))", username.String())
 }
 
 func (u *userRepository) Permissions(ctx context.Context, userID uuid.UUID) (bool, error) {
@@ -222,13 +226,6 @@ func (u *userRepository) Update(ctx context.Context, to *model.User) (*model.Use
 	}
 
 	return to, tx.Commit(ctx)
-}
-
-func (u *userRepository) VotedComments(ctx context.Context, userID uuid.UUID) ([]*struct {
-	CommentID uuid.UUID
-	Vote      int
-}, error) {
-	panic("unimplemented")
 }
 
 func (u *userRepository) validateNewUsername(ctx context.Context, username string) (bool, error) {

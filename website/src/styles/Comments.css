@@ -1,0 +1,242 @@
+.comments-container {
+  margin: 20px auto; /* Center container */
+  padding: 20px;
+  border: 1px solid #e0e0e0; /* Lighter border */
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); /* Softer shadow */
+  max-width: 800px; /* Limit width */
+}
+
+.comments-container h2 {
+  font-size: 1.8rem;
+  margin-bottom: 20px; /* Increased spacing */
+  color: #333;
+  text-align: center; /* Center title */
+  border-bottom: 1px solid #eee; /* Add separator */
+  padding-bottom: 10px; /* Spacing for separator */
+}
+
+.comments-container ul {
+  list-style: none;
+  padding: 0;
+  margin: 0; /* Remove default margin */
+}
+
+.comment-item { /* Renamed from li for clarity */
+  margin-bottom: 15px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.3s ease;
+}
+
+.comment-item:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Style for pending comments */
+.pending-comment {
+  opacity: 0.7;
+  background-color: #f0f0f0;
+}
+
+/* Comment Metadata (Author, Date) */
+.comment-meta {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap; /* Wrap if space is limited */
+}
+
+.comment-author {
+  font-weight: bold;
+  color: #444;
+  margin-right: 10px; /* Space between author and date */
+}
+
+/* Comment Body */
+.comment-body {
+  margin-bottom: 12px;
+  line-height: 1.6; /* Improve readability */
+  color: #333;
+}
+.comment-body p { /* Spacing for paragraphs within markdown */
+    margin-bottom: 0.5em;
+}
+.comment-body p:last-child {
+    margin-bottom: 0;
+}
+
+
+/* Comment Actions (Edit, Delete, Vote) */
+.comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Space out actions */
+  margin-top: 10px;
+  flex-wrap: wrap; /* Allow wrapping on small screens */
+  gap: 10px; /* Add gap between action groups */
+}
+
+.action-button {
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  background-color: #eee;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: #ddd;
+}
+
+.delete-button {
+  background-color: #fdd;
+  color: #c00;
+  border-color: #fbb;
+}
+
+.delete-button:hover {
+  background-color: #fbb;
+}
+
+/* Voting Section */
+.voting {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Space between buttons and count */
+}
+
+.vote-button {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1; /* Ensure consistent height */
+  padding: 4px 8px;
+  color: #666;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.vote-button:hover {
+  background-color: #f0f0f0;
+  border-color: #bbb;
+}
+
+.vote-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vote-button.upvote.active {
+  color: #007bff; /* Blue for active upvote */
+  border-color: #007bff;
+  background-color: #e7f3ff;
+}
+
+.vote-button.downvote.active {
+  color: #dc3545; /* Red for active downvote */
+  border-color: #dc3545;
+  background-color: #fdf2f2;
+}
+
+.vote-count {
+  font-weight: bold;
+  min-width: 20px; /* Ensure space for count */
+  text-align: center;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+/* Add/Edit Comment Section */
+.add-comment-section, .edit-comment-section {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.comments-container textarea {
+  width: 100%; /* Take full width */
+  box-sizing: border-box; /* Include padding/border in width */
+  margin-bottom: 10px; /* Space below textarea */
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical; /* Allow vertical resize */
+}
+
+.comments-container button {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+.comments-container button:hover {
+  background-color: #0056b3;
+}
+
+.comments-container button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Specific button styling */
+.edit-actions {
+    display: flex;
+    gap: 10px; /* Space between save/cancel */
+}
+
+.cancel-button {
+    background-color: #6c757d; /* Gray for cancel */
+}
+.cancel-button:hover {
+    background-color: #5a6268;
+}
+
+/* No Comments Message */
+.no-comments {
+    text-align: center;
+    color: #777;
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff;
+    border: 1px dashed #ddd;
+    border-radius: 5px;
+}
+
+/* Error/Loading Messages */
+.error-message {
+  color: #dc3545; /* Bootstrap danger color */
+  background-color: #f8d7da; /* Light red background */
+  border: 1px solid #f5c6cb; /* Red border */
+  padding: 10px 15px;
+  border-radius: 5px;
+  margin-bottom: 15px; /* Space below error */
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.loading-message {
+  font-size: 1rem;
+  color: #555;
+  margin-top: 10px;
+  text-align: center;
+  padding: 20px;
+}

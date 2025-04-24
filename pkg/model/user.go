@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const UserApiVersion string = "user.itsc-4155-group-project.edu.whits.io/v1alpha1"
+
 type User struct {
 	ID          uuid.UUID `json:"id"`
 	GithubID    string    `json:"github_id"`
@@ -20,6 +22,10 @@ type User struct {
 	Email       string    `json:"email"`
 	Avatar      uuid.UUID `json:"bref_avatar"`
 	Admin       bool      `json:"admin"`
+}
+
+func (u User) APIVersion() string {
+	return UserApiVersion
 }
 
 func (u User) ToAuthor() CommentUser {
@@ -45,9 +51,10 @@ var (
 	// character sets.
 	//
 	// A handle is 2-32 characters, contains any characters except
-	// #, @, or newline, and does not have a trailing space. Due to how
-	// handles have to be managed, handle regular expressions expect to
-	// be given handles as the only thing in their sequence to validate
+	// #, @, or newline, and does not have a leading or trailing space.
+	// Due to how handles have to be managed, handle regular
+	// expressions expect to be given handles as the only thing in
+	// their sequence to validate
 	//
 	// A valid handle matches [generalHandleRe] and does not match
 	// either [lHandleWhtespRe] or [rHandleWhtespRe]
@@ -57,9 +64,10 @@ var (
 	// rHandleWhtespRe is responsible for trailing whitespace.
 	//
 	// A handle is 2-32 characters, contains any characters except
-	// #, @, or newline, and does not have a trailing space. Due to how
-	// handles have to be managed, handle regular expressions expect to
-	// be given handles as the only thing in their sequence to validate
+	// #, @, or newline, and does not have a leading or trailing space.
+	// Due to how handles have to be managed, handle regular
+	// expressions expect to be given handles as the only thing in
+	// their sequence to validate
 	//
 	// A valid handle matches [generalHandleRe] and does not match
 	// either [lHandleWhtespRe] or [rHandleWhtespRe]
@@ -69,24 +77,25 @@ var (
 	// rHandleWhtespRe is responsible for trailing whitespace
 	//
 	// A handle is 2-32 characters, contains any characters except
-	// #, @, or newline, and does not have a trailing space. Due to how
-	// handles have to be managed, handle regular expressions expect to
-	// be given handles as the only thing in their sequence to validate
+	// #, @, or newline, and does not have a leading or trailing space.
+	// Due to how handles have to be managed, handle regular
+	// expressions expect to be given handles as the only thing in
+	// their sequence to validate
 	//
 	// A valid handle matches [generalHandleRe] and does not match
 	// either [lHandleWhtespRe] or [rHandleWhtespRe]
 	rHandleWhtespRe *regexp.Regexp
 
-	ReservedHandles []string = []string{"system", "deleted"}
+	ReservedHandles []string = []string{"system", "deleted", "invalid"}
 )
 
 func init() {
 	// Capture group 1 is the handle, 2 is the discrim
-	UsernameComponentsRe = regexp.MustCompile(`([^@#\n]{2,32})#(\d{4})$`)
+	UsernameComponentsRe = regexp.MustCompile(`^([^@#\n]{2,32})#(\d{4})$`)
 
 	generalHandleRe = regexp.MustCompile(`^[^@#\n]{2,32}$`)
 	lHandleWhtespRe = regexp.MustCompile(`^\s+.*$`)
-	rHandleWhtespRe = regexp.MustCompile(`^\s+.*$`)
+	rHandleWhtespRe = regexp.MustCompile(`^.*\s+$`)
 }
 
 // A username is a human-readable unique identifier for a user and
@@ -120,13 +129,28 @@ func UsernameFromString(un string) (Username, error) {
 				len(components),
 			)
 	}
+	handle := components[1]
+	if !generalHandleRe.MatchString(handle) {
+		return Username{}, fmt.Errorf(
+			"invalid handle, must not contain `#`, `@`, or newline",
+		)
+	} else if lHandleWhtespRe.MatchString(handle) {
+		return Username{}, fmt.Errorf(
+			"invalid handle, must not have leading whitespace",
+		)
+	} else if rHandleWhtespRe.MatchString(handle) {
+		return Username{}, fmt.Errorf(
+			"invalid handle, must not have trailing whitespace",
+		)
+	}
+
 	discriminator, err := strconv.Atoi(components[2])
 	if err != nil {
 		return Username{}, fmt.Errorf("cast discriminator: %w", err)
 	}
 
 	if uname, err := UsernameFromComponents(
-		components[1], discriminator,
+		handle, discriminator,
 	); err != nil {
 		return Username{}, err
 	} else {
@@ -135,6 +159,7 @@ func UsernameFromString(un string) (Username, error) {
 }
 
 func UsernameFromComponents[I int16 | int](handle string, discriminator I) (Username, error) {
+	const errorCaller string = "username from components"
 	// The actual discriminator, we have to suss out generics first
 	var d int16
 	switch v := any(discriminator).(type) {
@@ -144,14 +169,15 @@ func UsernameFromComponents[I int16 | int](handle string, discriminator I) (User
 		case string:
 			if len(v) != 4 {
 				return Username{}, fmt.Errorf(
-					"create username: mismatched discriminator string length, want 4, have %d",
+					"%v: mismatched discriminator string length, want 4, have %d",
+					errorCaller,
 					len(v),
 				)
 			}
 			// Convert the string to an int
 			val, err := strconv.Atoi(v)
 			if err != nil {
-				return Username{}, fmt.Errorf("create username: %w", err)
+				return Username{}, fmt.Errorf("%v: %w", errorCaller, err)
 			}
 			dI = val
 		case int:
@@ -162,7 +188,8 @@ func UsernameFromComponents[I int16 | int](handle string, discriminator I) (User
 
 		if dI < math.MinInt16 || dI > math.MaxInt16 {
 			return Username{}, fmt.Errorf(
-				"create username: out of bounds integer, want [-32768,32767], have %d",
+				"%v: out of bounds integer, want [-32768,32767], have %d",
+				errorCaller,
 				dI,
 			)
 		}

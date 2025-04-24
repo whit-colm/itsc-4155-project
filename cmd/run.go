@@ -14,6 +14,7 @@ import (
 
 	"github.com/whit-colm/itsc-4155-project/internal/db"
 	"github.com/whit-colm/itsc-4155-project/pkg/endpoints"
+	"github.com/whit-colm/itsc-4155-project/pkg/scraper"
 )
 
 type flagVars struct {
@@ -116,11 +117,13 @@ func Run(args []string) int {
 		Endpoint:     oauth2Endpoints.GitHub,
 	}
 
+	sc := scraper.NewBookScraper(ds.Blob, ds.Book, ds.Author)
+
 	// Define the Gin router
 	router := gin.Default()
 
 	// Set up endpoints
-	endpoints.Configure(router, &ds, &ghoa2)
+	endpoints.Configure(router, &ds, &ghoa2, sc)
 
 	// Start the router
 	err = router.Run(fmt.Sprintf("%v:%v", runtimeConfig.GinHost, runtimeConfig.GinPort))

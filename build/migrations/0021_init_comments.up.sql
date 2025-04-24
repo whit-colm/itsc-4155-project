@@ -5,8 +5,8 @@ CREATE TABLE comments (
     body TEXT,
     rating REAL,
     parent_comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
-    votes INTEGER NOT NULL DEFAULT 0,
-    deleted BOOLEAN DEFAULT false,
+    vote_total INTEGER NOT NULL DEFAULT 0,
+    deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -31,3 +31,26 @@ CREATE UNIQUE INDEX i_one_user_one_review ON comments (poster_id, book_id)
 CREATE INDEX i_comments_books ON comments (book_id);
 CREATE INDEX i_comments_parent ON comments (parent_comment_id);
 CREATE INDEX i_comments_user ON comments (poster_id);
+
+CREATE INDEX i_comments_search ON comments 
+USING bm25 (
+    id,
+    book_id,
+    poster_id,
+    body,
+    rating,
+    parent_comment_id,
+    vote_total,
+    deleted,
+    created_at,
+    updated_at
+) WITH (key_field='id');
+
+--------------
+-- Triggers --
+--------------
+
+CREATE TRIGGER t_comments_set_updated_at
+BEFORE UPDATE ON comments
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();

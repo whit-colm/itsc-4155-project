@@ -63,8 +63,12 @@ func (j jwtCustomSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerO
 func AuthorizationJWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		// Yes "Bearer null" is not... something I should check for
+		// explicitly, but I am already asking a lot of the frontend
+		// girls so I'll just make this a nonissue for them
+		if authHeader == "" || authHeader == "Bearer null" {
 			c.Next()
+			return
 		}
 
 		// Expect header value to be in the format "Bearer <token>"
@@ -135,7 +139,11 @@ func UserPermissions() gin.HandlerFunc {
 	const errorCaller string = "check user permissions"
 	return func(c *gin.Context) {
 		id, err := wrapGinContextUserID(c)
-		if err != nil {
+		if errors.Is(err, errUserIDKeyNotFound) {
+			c.Set("permissions", false)
+			c.Next()
+			return
+		} else if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized,
 				jsonParsableError{
 					Summary: "Issue parsing ID from context, are you sure you're authenticated?",
@@ -295,11 +303,11 @@ func (h *authHandle) GithubCallback(c *gin.Context) (int, string, error) {
 	// they've just logged in or their account has been created. We now
 	// issue a JWT now.
 	u, err := h.repo.GetByGithubID(c.Request.Context(), strconv.Itoa(aux.ID))
-	if errors.Is(err, repository.ErrorNotFound) {
+	if errors.Is(err, repository.ErrNotFound) {
 		return http.StatusInternalServerError,
 			"Did not find user with the given GitHub ID",
 			fmt.Errorf("login github callback: %w", err)
-	} else if errors.Is(err, repository.ErrorBadConnection) {
+	} else if errors.Is(err, repository.ErrBadConnection) {
 		return http.StatusServiceUnavailable,
 			"Issue querying the database",
 			fmt.Errorf("login github callback: %w", err)

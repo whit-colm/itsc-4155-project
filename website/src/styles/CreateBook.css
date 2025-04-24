@@ -1,16 +1,16 @@
 .create-book-container {
-  max-width: 500px;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: #f9f9f9;
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 25px;
+  background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .create-book-container h1 {
   text-align: center;
-  margin-bottom: 20px;
-  font-size: 24px;
+  margin-bottom: 25px;
+  font-size: 2rem;
   color: #333;
 }
 
@@ -22,59 +22,177 @@
 .create-book-container input,
 .create-book-container select {
   margin-bottom: 15px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 16px;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+
+.create-book-container input:disabled,
+.create-book-container select:disabled,
+.create-book-container button:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .create-book-container button {
-  padding: 10px;
+  padding: 12px;
   background-color: #007bff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 1rem;
   margin-top: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.create-book-container button[type="submit"] {
+  margin-top: 20px;
+  background-color: #28a745;
+}
+
+.create-book-container button[type="submit"]:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.create-book-container button[type="submit"]:disabled {
+  background-color: #5cb85c;
 }
 
 .create-book-container button:hover {
   background-color: #0056b3;
 }
 
+.isbn-label {
+  display: block;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
 .isbn-input {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  gap: 10px;
 }
 
-.isbn-input select,
+.isbn-input select {
+  flex-basis: 120px;
+  flex-grow: 0;
+  margin-right: 0;
+  margin-bottom: 0;
+}
+
 .isbn-input input {
-  margin-right: 10px;
   flex: 1;
+  margin-right: 0;
+  margin-bottom: 0;
 }
 
-.isbn-input button {
-  background-color: #ff4d4d;
+.remove-isbn-button {
+  background-color: #dc3545;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 50%;
   cursor: pointer;
-  padding: 10px;
-  height: 40px;
-  margin-bottom: 25px;
+  padding: 0;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
 }
 
-.isbn-input button:hover {
-  background-color: #cc0000;
+.remove-isbn-button:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.isbn-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.add-isbn-button {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  background-color: #6c757d;
+  margin-top: 0;
+}
+
+.add-isbn-button:hover:not(:disabled) {
+  background-color: #5a6268;
 }
 
 .error {
-  color: red;
-  font-size: 12px;
-  margin-left: 10px;
+  color: #dc3545;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.isbn-error {
+  flex-basis: 100%;
+  margin-left: 130px;
+  margin-top: 0;
+}
+
+.submit-error {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.image-upload-label {
+  display: block;
+  margin-top: 20px;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+.image-upload {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 5px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.95rem;
+  background-color: #fff;
+}
+
+.image-upload::file-selector-button {
+  padding: 6px 12px;
+  margin-right: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #eee;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.image-upload::file-selector-button:hover {
+  background-color: #ddd;
+}
+
+.image-filename {
+  display: block;
+  font-size: 0.85rem;
+  color: #555;
+  margin-bottom: 15px;
+  font-style: italic;
 }
