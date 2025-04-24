@@ -61,7 +61,7 @@ func (s *BookScraper) scrapeGoogleBooks(ctx context.Context, offset, limit int, 
 		// If we hit the rate limit, we wait for half a second to a second
 		// before retrying. This is a simple backoff strategy.
 		// This is not a perfect solution, but it should work for most cases.
-		randDelay := 500 + rand.Intn(500)
+		randDelay := 1500 + rand.Intn(500)
 		time.Sleep(time.Millisecond * time.Duration(randDelay))
 		s.scrapeGoogleBooks(ctx, offset, limit, query, iCh, eCh, wg)
 		return

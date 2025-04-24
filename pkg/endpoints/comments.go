@@ -250,13 +250,24 @@ func (ch *commentHandle[S]) Delete(c *gin.Context) (int, string, error) {
 			fmt.Errorf("%s: %w", errorCaller, err)
 	}
 
-	comment, err := ch.comm.GetByID(c.Request.Context(), commentIDParam)
-	if err != nil {
+	if comment, err := ch.comm.GetByID(c.Request.Context(), commentIDParam); err != nil {
 		return wrapDatastoreError(errorCaller, err)
 	} else if userIDParam != comment.Poster.ID && !perms {
 		return http.StatusForbidden,
 			"You do not have permission to delete that comment",
 			nil
+	} else if comment.Deleted {
+		return http.StatusGone,
+			"This comment has already been deleted",
+			nil
+	} else {
+		if err = ch.comm.Delete(c.Request.Context(), comment.ID); err != nil {
+			return wrapDatastoreError(errorCaller, err)
+		}
+		if comment, err = ch.comm.GetByID(c.Request.Context(), comment.ID); err != nil {
+			return wrapDatastoreError(errorCaller, err)
+		}
+		c.JSON(http.StatusOK, comment)
 	}
 	return http.StatusOK, "", nil
 }

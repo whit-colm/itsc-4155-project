@@ -235,7 +235,6 @@ func (a *authorRepository[S]) GetByID(ctx context.Context, id uuid.UUID) (*model
 		if err != nil {
 			return nil, fmt.Errorf("%v: %w", errorCaller, err)
 		}
-		fmt.Printf("%#v\n", author)
 	} else {
 		// If there's no next, that means there's either an error or no rows
 		// check if there's an error and if not just return a repository.ErrNotFound
